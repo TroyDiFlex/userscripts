@@ -115,8 +115,10 @@ export async function getFile(path, usePrivate = false) {
   const { owner, name } = resolveRepo(usePrivate);
   try {
     const data = await api(`/repos/${owner}/${name}/contents/${encPath(path)}`);
-    // GitHub возвращает массив для директорий или объект без content для файлов > 1MB
-    if (!data || Array.isArray(data) || !data.content) return null;
+    // GitHub возвращает массив для директорий
+    if (!data || Array.isArray(data)) return null;
+    // Файлы > 1MB: content отсутствует, но sha есть — возвращаем без content
+    if (!data.content) return { sha: data.sha, content: null, raw: data };
     return { sha: data.sha, content: base64ToUtf8(data.content), raw: data };
   } catch (e) {
     if (e.status === 404) return null;
@@ -125,6 +127,21 @@ export async function getFile(path, usePrivate = false) {
 }
 
 export async function getSha(path, usePrivate = false) {
+  // Используем отдельный запрос через directory listing для надёжного получения sha
+  // без загрузки содержимого файла
+  const { owner, name } = resolveRepo(usePrivate);
+  const segments = path.split('/');
+  const fileName = segments.pop();
+  const dir = segments.join('/');
+  try {
+    const dirPath = dir ? `/repos/${owner}/${name}/contents/${encPath(dir)}` : `/repos/${owner}/${name}/contents`;
+    const list = await api(dirPath);
+    if (Array.isArray(list)) {
+      const entry = list.find(e => e.name === fileName);
+      if (entry) return entry.sha;
+    }
+  } catch { /* */ }
+  // Fallback: через getFile
   const f = await getFile(path, usePrivate);
   return f ? f.sha : null;
 }
