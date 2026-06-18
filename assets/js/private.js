@@ -246,17 +246,23 @@ async function renderStore() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(new Blob([blob], { type: 'application/javascript' }));
+      // Tampermonkey перехватывает файл только если браузер ОТКРЫВАЕТ его как навигацию,
+      // а не скачивает. Поэтому используем window.open без атрибута download.
+      const scriptText = await blob.text();
+      const objectUrl = URL.createObjectURL(new Blob([scriptText], { type: 'text/javascript' }));
 
-      // Открываем в новой вкладке — Tampermonkey подхватит .user.js
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = filePath.split('/').pop() || 'script.user.js';
-      a.target = '_blank';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 5000);
+      const win = window.open(objectUrl, '_blank');
+      if (!win) {
+        // Если всплывающие окна заблокированы — fallback: ссылка без download
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.target = '_blank';
+        // НЕ устанавливаем a.download — иначе браузер скачает, а не откроет
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
 
       if (btn) { btn.dataset.loading = ''; btn.textContent = '⬇️ Установить'; }
     } catch (e) {
