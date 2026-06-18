@@ -246,10 +246,10 @@ async function renderStore() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const blob = await res.blob();
-      // Tampermonkey перехватывает файл только если браузер ОТКРЫВАЕТ его как навигацию,
-      // а не скачивает. Поэтому используем window.open без атрибута download.
+      // Tampermonkey перехватывает установку скрипта при открытии blob: URL
+      // с MIME-типом application/x-userscript. text/javascript — браузер просто показывает текст.
       const scriptText = await blob.text();
-      const objectUrl = URL.createObjectURL(new Blob([scriptText], { type: 'text/javascript' }));
+      const objectUrl = URL.createObjectURL(new Blob([scriptText], { type: 'application/x-userscript' }));
 
       const win = window.open(objectUrl, '_blank');
       if (!win) {
