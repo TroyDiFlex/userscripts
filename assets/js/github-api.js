@@ -1,5 +1,9 @@
-// Тонкая обёртка над GitHub Contents API.
+// ============================================================
+// Обёртка над GitHub Contents API.
+// Поддерживает два репозитория: публичный и приватный.
+// ============================================================
 
+// --- Публичный репо (основной) ---
 export function getToken() { return localStorage.getItem('gh_pat') || ''; }
 export function getRepo() {
   const r = localStorage.getItem('gh_repo') || '';
@@ -15,6 +19,24 @@ export function clearAuth() {
   localStorage.removeItem('gh_repo');
 }
 
+// --- Приватный репо ---
+export function getPrivateRepo() {
+  const r = localStorage.getItem('gh_private_repo') || '';
+  const [owner, name] = r.split('/');
+  return { owner: owner || '', name: name || '' };
+}
+export function setPrivateRepo(repo) {
+  localStorage.setItem('gh_private_repo', repo);
+}
+export function getPrivateRepoRaw() {
+  return localStorage.getItem('gh_private_repo') || '';
+}
+export function hasPrivateRepo() {
+  const { owner, name } = getPrivateRepo();
+  return !!(owner && name);
+}
+
+// --- Внутренний HTTP-клиент ---
 async function api(path, { method = 'GET', body = null } = {}) {
   const res = await fetch('https://api.github.com' + path, {
     method,
@@ -38,12 +60,20 @@ async function api(path, { method = 'GET', body = null } = {}) {
   return data;
 }
 
+// --- Проверка подключения ---
 export async function checkAuth() {
   const { owner, name } = getRepo();
   if (!getToken() || !owner || !name) throw new Error('Не настроено');
   return await api(`/repos/${owner}/${name}`);
 }
 
+export async function checkPrivateAuth() {
+  const { owner, name } = getPrivateRepo();
+  if (!getToken() || !owner || !name) throw new Error('Приватный репо не настроен');
+  return await api(`/repos/${owner}/${name}`);
+}
+
+// --- Вспомогательные функции ---
 function utf8ToBase64(str) {
   const bytes = new TextEncoder().encode(str);
   let bin = '';
@@ -70,8 +100,18 @@ function encPath(path) {
   return path.split('/').map(encodeURIComponent).join('/');
 }
 
-export async function getFile(path) {
-  const { owner, name } = getRepo();
+// Вспомогательная: получаем {owner, name} для нужного репо
+function resolveRepo(usePrivate) {
+  return usePrivate ? getPrivateRepo() : getRepo();
+}
+
+// ============================================================
+// Публичные API-функции — каждая принимает необязательный
+// параметр usePrivate (true = приватный репо)
+// ============================================================
+
+export async function getFile(path, usePrivate = false) {
+  const { owner, name } = resolveRepo(usePrivate);
   try {
     const data = await api(`/repos/${owner}/${name}/contents/${encPath(path)}`);
     return { sha: data.sha, content: base64ToUtf8(data.content), raw: data };
@@ -81,36 +121,36 @@ export async function getFile(path) {
   }
 }
 
-export async function getSha(path) {
-  const f = await getFile(path);
+export async function getSha(path, usePrivate = false) {
+  const f = await getFile(path, usePrivate);
   return f ? f.sha : null;
 }
 
-export async function putFileText(path, text, message, sha = null) {
-  return putFileBase64(path, utf8ToBase64(text), message, sha);
+export async function putFileText(path, text, message, sha = null, usePrivate = false) {
+  return putFileBase64(path, utf8ToBase64(text), message, sha, usePrivate);
 }
 
-export async function putFileBase64(path, base64, message, sha = null) {
-  const { owner, name } = getRepo();
+export async function putFileBase64(path, base64, message, sha = null, usePrivate = false) {
+  const { owner, name } = resolveRepo(usePrivate);
   const body = { message, content: base64 };
   if (sha) body.sha = sha;
   return await api(`/repos/${owner}/${name}/contents/${encPath(path)}`, { method: 'PUT', body });
 }
 
-export async function deleteFile(path, sha, message) {
-  const { owner, name } = getRepo();
+export async function deleteFile(path, sha, message, usePrivate = false) {
+  const { owner, name } = resolveRepo(usePrivate);
   return await api(`/repos/${owner}/${name}/contents/${encPath(path)}`, {
     method: 'DELETE', body: { message, sha },
   });
 }
 
-export async function upsertText(path, text, message) {
-  const sha = await getSha(path);
-  return putFileText(path, text, message, sha);
+export async function upsertText(path, text, message, usePrivate = false) {
+  const sha = await getSha(path, usePrivate);
+  return putFileText(path, text, message, sha, usePrivate);
 }
-export async function upsertBase64(path, base64, message) {
-  const sha = await getSha(path);
-  return putFileBase64(path, base64, message, sha);
+export async function upsertBase64(path, base64, message, usePrivate = false) {
+  const sha = await getSha(path, usePrivate);
+  return putFileBase64(path, base64, message, sha, usePrivate);
 }
 
 export async function fileToBase64(file) {
@@ -120,4 +160,19 @@ export async function fileToBase64(file) {
     reader.onerror = reject;
     reader.readAsArrayBuffer(file);
   });
+}
+
+// Загрузить файл из приватного репо как blob-URL (для установки в Tampermonkey)
+export async function getPrivateFileAsObjectUrl(path) {
+  const { owner, name } = getPrivateRepo();
+  const res = await fetch(`https://api.github.com/repos/${owner}/${name}/contents/${encPath(path)}`, {
+    headers: {
+      'Authorization': `Bearer ${getToken()}`,
+      'Accept': 'application/vnd.github.raw+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    },
+  });
+  if (!res.ok) throw new Error(`Не удалось загрузить файл: HTTP ${res.status}`);
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
 }

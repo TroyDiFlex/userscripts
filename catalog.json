@@ -6,7 +6,6 @@
       "name": "Помощник актуализации цен",
       "description": "Анализирует первые N объявлений конкурентов, подсвечивает по цене и считает рекомендуемую цену с наценкой.",
       "category": "avito",
-      "visibility": "public",
       "version": "1.4",
       "file": "scripts/avito/price-helper.user.js",
       "icon": "🏷️",
@@ -27,7 +26,6 @@
       "name": "Avito Pro Tools",
       "description": "Подсвечивает карточки без продвижения и показывает стоимость просмотра.",
       "category": "avito",
-      "visibility": "public",
       "version": "2.0",
       "file": "scripts/avito/pro-tools.user.js",
       "icon": "📊",
@@ -46,7 +44,6 @@
       "name": "Avito Wordstat Автопарсер",
       "description": "Автоматически перебирает артикулы и собирает статистику спроса с Авито Wordstat.",
       "category": "avito",
-      "visibility": "public",
       "version": "1.5",
       "file": "scripts/avito/wordstat.user.js",
       "icon": "📈",
@@ -66,7 +63,6 @@
       "name": "TecAlliance — Скопировать номера",
       "description": "Быстрое копирование артикулов из TecAlliance одной кнопкой.",
       "category": "tecalliance",
-      "visibility": "public",
       "version": "1.0",
       "file": "scripts/tecalliance/copy-numbers.user.js",
       "icon": "🔢",
@@ -85,7 +81,6 @@
       "name": "TecAlliance — Скопировать применимость",
       "description": "Копирует данные применимости из TecAlliance в буфер обмена.",
       "category": "tecalliance",
-      "visibility": "public",
       "version": "1.0",
       "file": "scripts/tecalliance/copy-applicability.user.js",
       "icon": "📋",
@@ -95,97 +90,6 @@
         "tecalliance",
         "применимость",
         "копирование"
-      ],
-      "installCount": 0,
-      "updatedAt": "2026-06-18"
-    },
-    {
-      "id": "steam-discount",
-      "name": "Steam Discount Finder — ЗакупОчка",
-      "description": "Находит выгодные скидки в Steam для закупки.",
-      "category": "steam",
-      "visibility": "private",
-      "version": "1.0",
-      "file": "scripts/steam/discount-finder.user.js",
-      "icon": "🎮",
-      "color": "#1B2838",
-      "images": [],
-      "tags": [
-        "steam",
-        "скидки"
-      ],
-      "installCount": 0,
-      "updatedAt": "2026-06-18"
-    },
-    {
-      "id": "steam-profile",
-      "name": "Steam Profile Preview UI",
-      "description": "Улучшенный предпросмотр профилей Steam.",
-      "category": "steam",
-      "visibility": "private",
-      "version": "1.0",
-      "file": "scripts/steam/profile-preview.user.js",
-      "icon": "👤",
-      "color": "#1B2838",
-      "images": [],
-      "tags": [
-        "steam",
-        "профиль"
-      ],
-      "installCount": 0,
-      "updatedAt": "2026-06-18"
-    },
-    {
-      "id": "work-widget",
-      "name": "Виджет рабочего времени ЗЧ",
-      "description": "Виджет для отслеживания рабочего времени.",
-      "category": "internal",
-      "visibility": "private",
-      "version": "1.0",
-      "file": "scripts/internal/work-widget.user.js",
-      "icon": "⏱️",
-      "color": "#E17055",
-      "images": [],
-      "tags": [
-        "внутреннее",
-        "время"
-      ],
-      "installCount": 0,
-      "updatedAt": "2026-06-18"
-    },
-    {
-      "id": "task-counter",
-      "name": "Нативный виджет подсчёта задач",
-      "description": "Считает и отображает задачи нативным способом.",
-      "category": "internal",
-      "visibility": "private",
-      "version": "2.2",
-      "file": "scripts/internal/task-counter.user.js",
-      "icon": "✅",
-      "color": "#00CEC9",
-      "images": [],
-      "tags": [
-        "внутреннее",
-        "задачи"
-      ],
-      "installCount": 0,
-      "updatedAt": "2026-06-18"
-    },
-    {
-      "id": "widget-511",
-      "name": "Скрипт для 511",
-      "description": "Горячие клавиши для 511 проекта: разметка и управление видео.",
-      "category": "internal",
-      "visibility": "private",
-      "version": "2.0",
-      "file": "scripts/internal/widget-511.user.js",
-      "icon": "⌨️",
-      "color": "#A29BFE",
-      "images": [],
-      "tags": [
-        "внутреннее",
-        "511",
-        "горячие клавиши"
       ],
       "installCount": 0,
       "updatedAt": "2026-06-18"
@@ -201,16 +105,6 @@
       "id": "tecalliance",
       "name": "TecAlliance",
       "icon": "🔧"
-    },
-    {
-      "id": "steam",
-      "name": "Steam",
-      "icon": "🎮"
-    },
-    {
-      "id": "internal",
-      "name": "Внутренние",
-      "icon": "🔒"
     }
   ]
 }

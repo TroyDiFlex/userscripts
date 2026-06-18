@@ -1,16 +1,17 @@
-import { loadCatalog, escapeHtml } from './common.js';
+import { loadCatalog, loadPrivateCatalog, escapeHtml } from './common.js';
 import * as gh from './github-api.js';
 import { getInstallStats, clearStatsCache } from './jsdelivr.js';
 
 const root = document.getElementById('root');
 const toasts = document.getElementById('toasts');
 
-const PRIVATE_JS_PATH = 'assets/js/private.js';
 const CATALOG_PATH = 'catalog.json';
 
 let state = {
   tab: 'scripts',
-  catalog: null,
+  catalog: null,         // объединённый каталог (public + private)
+  publicCatalog: null,   // raw публичный catalog.json
+  privateCatalog: null,  // raw приватный catalog.json
   loading: false,
 };
 
@@ -39,12 +40,43 @@ async function boot() {
   } catch (e) {
     return renderGate(`Не удалось подключиться: ${e.message}`);
   }
-  try {
-    state.catalog = await loadCatalog();
-  } catch {
-    state.catalog = { version: 1, scripts: [], categories: [] };
-  }
+  await loadAllCatalogs();
   renderApp();
+}
+
+async function loadAllCatalogs() {
+  // Публичный каталог
+  let pubCat = { version: 1, scripts: [], categories: [] };
+  try {
+    pubCat = await loadCatalog();
+  } catch { /* */ }
+
+  // Приватный каталог (если репо настроен)
+  let privCat = { version: 1, scripts: [], categories: [] };
+  if (gh.hasPrivateRepo()) {
+    try {
+      privCat = await loadPrivateCatalog();
+    } catch { /* */ }
+  }
+
+  state.publicCatalog = pubCat;
+  state.privateCatalog = privCat;
+
+  // Объединяем с пометкой visibility
+  const pubScripts = (pubCat.scripts || []).map(s => ({ ...s, visibility: 'public' }));
+  const privScripts = (privCat.scripts || []).map(s => ({ ...s, visibility: 'private' }));
+
+  // Категории объединяем уникально
+  const cats = [...(pubCat.categories || [])];
+  for (const c of (privCat.categories || [])) {
+    if (!cats.some(x => x.id === c.id)) cats.push(c);
+  }
+
+  state.catalog = {
+    version: pubCat.version || 1,
+    scripts: [...pubScripts, ...privScripts],
+    categories: cats,
+  };
 }
 
 // ============ Gate ============
@@ -62,9 +94,9 @@ function renderGate(err = '') {
             <div class="hint">Создаётся на github.com/settings/tokens?type=beta</div>
           </div>
           <div class="field">
-            <label for="g-repo">Репозиторий</label>
+            <label for="g-repo">Публичный репозиторий</label>
             <input id="g-repo" class="input" type="text" placeholder="ваш-логин/название-репо" required pattern="[^/\\s]+/[^/\\s]+" />
-            <div class="hint">Например: <code>ivanov/scripts</code></div>
+            <div class="hint">Например: <code>TroyDiFlex/userscripts</code></div>
           </div>
           <button type="submit" class="btn btn-primary" style="width:100%">Войти</button>
         </form>
@@ -96,6 +128,7 @@ function renderGate(err = '') {
 // ============ App shell ============
 function renderApp() {
   const repo = gh.getRepo();
+  const hasPrivate = gh.hasPrivateRepo();
   root.innerHTML = `
     <div class="app">
       <aside class="sidebar">
@@ -116,6 +149,7 @@ function renderApp() {
           <div class="connection">
             <span class="dot"></span>
             <span>${escapeHtml(repo.owner)}/${escapeHtml(repo.name)}</span>
+            ${hasPrivate ? `<span style="margin-left:8px;opacity:.6;font-size:12px">+ приватный</span>` : ''}
           </div>
           <button id="logout" class="btn-logout">Выйти</button>
         </div>
@@ -171,6 +205,7 @@ function renderScripts(el) {
 
 function rowHtml(s) {
   const cat = (state.catalog.categories || []).find((c) => c.id === s.category);
+  const isPrivate = s.visibility === 'private';
   return `
     <tr>
       <td>
@@ -179,7 +214,7 @@ function rowHtml(s) {
       </td>
       <td>${escapeHtml(cat?.name || s.category)}</td>
       <td>v${escapeHtml(s.version)}</td>
-      <td><span class="badge ${s.visibility === 'public' ? 'badge-public' : 'badge-private'}">${s.visibility === 'public' ? 'Публичный' : 'Приватный'}</span></td>
+      <td><span class="badge ${isPrivate ? 'badge-private' : 'badge-public'}">${isPrivate ? '🔒 Приватный' : '🌐 Публичный'}</span></td>
       <td><div class="row-actions">
         <button class="icon-btn" data-edit="${escapeHtml(s.id)}" title="Редактировать">✏️</button>
         <button class="icon-btn danger" data-del="${escapeHtml(s.id)}" title="Удалить">🗑️</button>
@@ -197,6 +232,8 @@ function openScriptModal(id) {
     visibility: 'public', version: '1.0', file: '', icon: '📜', color: '#6C63FF',
     images: [], tags: [],
   };
+
+  const origVisibility = orig?.visibility || null;  // запомним исходную видимость
 
   let pendingFile = null;        // {file, name}
   const pendingImages = [];      // [{file, name, dataUrl}]
@@ -234,9 +271,10 @@ function openScriptModal(id) {
           <div class="field">
             <label>Видимость</label>
             <div class="toggle" data-toggle="visibility">
-              <button type="button" data-v="public" class="${s.visibility === 'public' ? 'active' : ''}">Публичный</button>
-              <button type="button" data-v="private" class="${s.visibility === 'private' ? 'active' : ''}">Приватный</button>
+              <button type="button" data-v="public" class="${s.visibility === 'public' ? 'active' : ''}">🌐 Публичный</button>
+              <button type="button" data-v="private" class="${s.visibility === 'private' ? 'active' : ''}">🔒 Приватный</button>
             </div>
+            ${!gh.hasPrivateRepo() ? `<div class="hint" style="color:var(--warning)">⚠️ Настройте приватный репо в Настройках</div>` : ''}
           </div>
         </div>
         <div class="field-row">
@@ -292,7 +330,7 @@ function openScriptModal(id) {
   back.addEventListener('click', (e) => { if (e.target === back) close(); });
   back.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', close));
 
-  // Toggle
+  // Toggle visibility
   back.querySelectorAll('[data-toggle="visibility"] button').forEach((b) => {
     b.addEventListener('click', () => {
       s.visibility = b.dataset.v;
@@ -323,7 +361,6 @@ function openScriptModal(id) {
       if (v && !s.tags.includes(v)) {
         s.tags.push(v);
         chipsBox.insertAdjacentHTML('beforeend', tagChip(v));
-        // Move input to end
         chipsBox.appendChild(chipsIn);
       }
       chipsIn.value = '';
@@ -375,46 +412,89 @@ function openScriptModal(id) {
   back.querySelector('#save').addEventListener('click', async () => {
     if (!s.id || !s.name) { toast('Заполните ID и название', 'error'); return; }
     if (!editing && state.catalog.scripts.some((x) => x.id === s.id)) { toast('ID занят', 'error'); return; }
+    if (s.visibility === 'private' && !gh.hasPrivateRepo()) {
+      toast('Сначала настройте приватный репозиторий в Настройках!', 'error', 6000);
+      return;
+    }
+
     const saveBtn = back.querySelector('#save');
     saveBtn.dataset.loading = '1'; saveBtn.textContent = 'Сохраняю…';
+
+    const isPrivate = s.visibility === 'private';
+    const visibilityChanged = editing && origVisibility !== null && origVisibility !== s.visibility;
+    const wasPrivate = origVisibility === 'private';
+
     try {
-      // 1) Upload script file
+      // 1) Если скрипт МЕНЯЛ видимость — удалить из старого репо
+      if (visibilityChanged && orig.file) {
+        const oldPrivate = wasPrivate;
+        try {
+          const oldSha = await gh.getSha(orig.file, oldPrivate);
+          if (oldSha) await gh.deleteFile(orig.file, oldSha, `move script to ${s.visibility}: ${s.id}`, oldPrivate);
+        } catch { /* файла нет — не страшно */ }
+        // Удалить старые картинки из старого репо
+        for (const p of (orig.images || [])) {
+          try { const sha = await gh.getSha(p, oldPrivate); if (sha) await gh.deleteFile(p, sha, `move image: ${p}`, oldPrivate); } catch { /* */ }
+        }
+      }
+
+      // 2) Загрузить файл скрипта в НУЖНЫЙ репо
       if (pendingFile) {
         const folder = s.category;
         s.file = `scripts/${folder}/${s.id}.user.js`;
         const b64 = await gh.fileToBase64(pendingFile.file);
-        await gh.upsertBase64(s.file, b64, `upload script: ${s.id}`);
+        await gh.upsertBase64(s.file, b64, `upload script: ${s.id}`, isPrivate);
       } else if (!s.file) {
         s.file = `scripts/${s.category}/${s.id}.user.js`;
       }
 
-      // 2) Upload images
-      const newImgs = [...s.images];
+      // 3) Загрузить картинки в НУЖНЫЙ репо
+      const newImgs = visibilityChanged ? [] : [...s.images];
       for (let i = 0; i < pendingImages.length; i++) {
         const it = pendingImages[i];
         if (!it) continue;
         const ext = (it.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
         const path = `images/scripts/${s.id}-${Date.now()}-${i}.${ext}`;
         const b64 = await gh.fileToBase64(it.file);
-        await gh.upsertBase64(path, b64, `upload image: ${path}`);
+        await gh.upsertBase64(path, b64, `upload image: ${path}`, isPrivate);
         newImgs.push(path);
+      }
+      // Если видимость не менялась — удалить удалённые картинки
+      if (!visibilityChanged) {
+        for (const p of removedImages) {
+          try { const sha = await gh.getSha(p, isPrivate); if (sha) await gh.deleteFile(p, sha, `delete image: ${p}`, isPrivate); } catch { /* */ }
+        }
       }
       s.images = newImgs;
 
-      // 3) Delete removed images
-      for (const p of removedImages) {
-        try { const sha = await gh.getSha(p); if (sha) await gh.deleteFile(p, sha, `delete image: ${p}`); } catch { /* */ }
+      // 4) Обновить catalog.json НУЖНОГО репо
+      s.updatedAt = new Date().toISOString().slice(0, 10);
+      const scriptForCatalog = { ...s };
+      delete scriptForCatalog.visibility; // visibility не хранится в catalog.json
+
+      const catFile = await gh.getFile(CATALOG_PATH, isPrivate);
+      const cat = catFile ? JSON.parse(catFile.content) : { version: 1, scripts: [], categories: [] };
+      const idx = cat.scripts.findIndex((x) => x.id === s.id);
+      if (idx >= 0) cat.scripts[idx] = scriptForCatalog; else cat.scripts.push(scriptForCatalog);
+      // Убеждаемся что категории синхронизированы
+      const allCats = state.catalog.categories || [];
+      cat.categories = allCats;
+      await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `${editing ? 'update' : 'add'} script: ${s.id}`, catFile?.sha, isPrivate);
+
+      // 5) Если менялась видимость — удалить из старого catalog.json
+      if (visibilityChanged) {
+        const oldPrivate = wasPrivate;
+        const oldCatFile = await gh.getFile(CATALOG_PATH, oldPrivate);
+        if (oldCatFile) {
+          const oldCat = JSON.parse(oldCatFile.content);
+          oldCat.scripts = (oldCat.scripts || []).filter((x) => x.id !== s.id);
+          await gh.putFileText(CATALOG_PATH, JSON.stringify(oldCat, null, 2), `remove script (moved): ${s.id}`, oldCatFile.sha, oldPrivate);
+        }
       }
 
-      // 4) Update catalog
-      s.updatedAt = new Date().toISOString().slice(0, 10);
-      const file = await gh.getFile(CATALOG_PATH);
-      const cat = file ? JSON.parse(file.content) : { version: 1, scripts: [], categories: [] };
-      const idx = cat.scripts.findIndex((x) => x.id === s.id);
-      if (idx >= 0) cat.scripts[idx] = s; else cat.scripts.push(s);
-      await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `${editing ? 'update' : 'add'} script: ${s.id}`, file?.sha);
-      state.catalog = cat;
-      toast('Сохранено. Магазин обновится через ~30 сек.');
+      // 6) Обновить локальный state
+      await loadAllCatalogs();
+      toast('Сохранено! Магазин обновится через ~30 сек.');
       close();
       renderTab();
     } catch (e) {
@@ -439,19 +519,20 @@ async function deleteScript(id) {
   const s = state.catalog.scripts.find((x) => x.id === id);
   if (!s) return;
   if (!confirm(`Удалить "${s.name}"? Это также удалит файл скрипта и изображения из репозитория.`)) return;
+  const isPrivate = s.visibility === 'private';
   try {
-    // delete script file
-    try { const sha = await gh.getSha(s.file); if (sha) await gh.deleteFile(s.file, sha, `delete script: ${s.id}`); } catch { /* */ }
-    // delete images
+    // Удалить файл скрипта
+    try { const sha = await gh.getSha(s.file, isPrivate); if (sha) await gh.deleteFile(s.file, sha, `delete script: ${s.id}`, isPrivate); } catch { /* */ }
+    // Удалить картинки
     for (const p of (s.images || [])) {
-      try { const sha = await gh.getSha(p); if (sha) await gh.deleteFile(p, sha, `delete image: ${p}`); } catch { /* */ }
+      try { const sha = await gh.getSha(p, isPrivate); if (sha) await gh.deleteFile(p, sha, `delete image: ${p}`, isPrivate); } catch { /* */ }
     }
-    // update catalog
-    const file = await gh.getFile(CATALOG_PATH);
-    const cat = file ? JSON.parse(file.content) : state.catalog;
+    // Обновить catalog.json
+    const catFile = await gh.getFile(CATALOG_PATH, isPrivate);
+    const cat = catFile ? JSON.parse(catFile.content) : state.catalog;
     cat.scripts = cat.scripts.filter((x) => x.id !== id);
-    await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `delete script: ${id}`, file?.sha);
-    state.catalog = cat;
+    await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `delete script: ${id}`, catFile?.sha, isPrivate);
+    await loadAllCatalogs();
     toast('Удалено');
     renderTab();
   } catch (e) { toast('Ошибка: ' + e.message, 'error', 8000); }
@@ -523,13 +604,18 @@ function openCategoryModal(id) {
     if (!c.id || !c.name) { toast('Заполните поля', 'error'); return; }
     const btn = back.querySelector('#c-save'); btn.dataset.loading = '1'; btn.textContent = 'Сохраняю…';
     try {
-      const file = await gh.getFile(CATALOG_PATH);
-      const cat = file ? JSON.parse(file.content) : state.catalog;
-      cat.categories = cat.categories || [];
-      const idx = cat.categories.findIndex((x) => x.id === c.id);
-      if (idx >= 0) cat.categories[idx] = c; else cat.categories.push(c);
-      await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `${editing ? 'update' : 'add'} category: ${c.id}`, file?.sha);
-      state.catalog = cat;
+      // Сохраняем категорию в ОБА каталога
+      for (const usePrivate of [false, true]) {
+        if (usePrivate && !gh.hasPrivateRepo()) continue;
+        const catFile = await gh.getFile(CATALOG_PATH, usePrivate);
+        if (!catFile && usePrivate) continue; // приватный каталог ещё не создан — пропускаем
+        const cat = catFile ? JSON.parse(catFile.content) : { version: 1, scripts: [], categories: [] };
+        cat.categories = cat.categories || [];
+        const idx = cat.categories.findIndex((x) => x.id === c.id);
+        if (idx >= 0) cat.categories[idx] = c; else cat.categories.push(c);
+        await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `${editing ? 'update' : 'add'} category: ${c.id}`, catFile?.sha, usePrivate);
+      }
+      await loadAllCatalogs();
       toast('Сохранено');
       close();
       renderTab();
@@ -540,11 +626,15 @@ function openCategoryModal(id) {
 async function deleteCategory(id) {
   if (!confirm('Удалить категорию?')) return;
   try {
-    const file = await gh.getFile(CATALOG_PATH);
-    const cat = file ? JSON.parse(file.content) : state.catalog;
-    cat.categories = (cat.categories || []).filter((c) => c.id !== id);
-    await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `delete category: ${id}`, file?.sha);
-    state.catalog = cat;
+    for (const usePrivate of [false, true]) {
+      if (usePrivate && !gh.hasPrivateRepo()) continue;
+      const catFile = await gh.getFile(CATALOG_PATH, usePrivate);
+      if (!catFile) continue;
+      const cat = JSON.parse(catFile.content);
+      cat.categories = (cat.categories || []).filter((c) => c.id !== id);
+      await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `delete category: ${id}`, catFile.sha, usePrivate);
+    }
+    await loadAllCatalogs();
     toast('Удалено');
     renderTab();
   } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
@@ -552,10 +642,10 @@ async function deleteCategory(id) {
 
 // ============ Stats tab ============
 async function renderStats(el) {
-  const scripts = state.catalog.scripts || [];
+  const scripts = (state.catalog.scripts || []).filter(s => s.visibility === 'public');
   el.innerHTML = `
     <h1>Статистика установок</h1>
-    <p class="subtitle">Данные с jsDelivr CDN. Кешируются на 10 минут.</p>
+    <p class="subtitle">Данные с jsDelivr CDN. Только публичные скрипты. Кешируются на 10 минут.</p>
     <div class="toolbar">
       <button id="refresh" class="btn btn-secondary">🔄 Обновить</button>
     </div>
@@ -589,81 +679,56 @@ function cssEscapeAttr(s) { return String(s).replace(/["\\]/g, '\\$&'); }
 // ============ Settings tab ============
 function renderSettings(el) {
   const repo = gh.getRepo();
+  const privateRepoRaw = gh.getPrivateRepoRaw();
   el.innerHTML = `
     <h1>Настройки</h1>
-    <p class="subtitle">Управление паролем приватки и подключением к GitHub.</p>
+    <p class="subtitle">Управление репозиториями и подключением к GitHub.</p>
 
     <section class="section">
-      <h3>🔒 Пароль приватного магазина</h3>
-      <p class="section-desc">Пароль нигде не хранится в открытом виде. В коде сохраняется только его «хеш» — необратимая строка SHA-256.</p>
+      <h3>🔒 Приватный репозиторий</h3>
+      <p class="section-desc">Укажите название вашего приватного репозитория на GitHub. Туда будут сохраняться все скрипты с видимостью «Приватный».</p>
       <div class="field">
-        <label>Новый пароль</label>
-        <input id="new-pwd" class="input" type="text" placeholder="Введите новый пароль" />
+        <label for="priv-repo">Приватный репозиторий</label>
+        <input id="priv-repo" class="input" type="text" placeholder="TroyDiFlex/private-scripts" value="${escapeHtml(privateRepoRaw)}" />
+        <div class="hint">Формат: <code>логин/название-репо</code>. Например: <code>TroyDiFlex/private-scripts</code></div>
       </div>
-      <div id="hash-block" style="display:none">
-        <label style="font-size:13px;font-weight:600">Хеш SHA-256:</label>
-        <div class="hash-display" id="hash-out"></div>
-        <div class="toolbar" style="margin-top:12px">
-          <button class="btn btn-primary" id="pwd-auto">⚡ Записать в репозиторий автоматически</button>
-          <button class="btn btn-secondary" id="pwd-copy">📋 Скопировать хеш</button>
-        </div>
-        <div class="callout">
-          <strong>Если автозапись не сработала</strong> (нет прав, репозиторий приватный и т.п.) — вставьте хеш вручную:
-          <ol>
-            <li>Откройте файл <code>${escapeHtml(PRIVATE_JS_PATH)}</code> в вашем репозитории на GitHub.</li>
-            <li>Нажмите карандашик «Edit» справа вверху.</li>
-            <li>Найдите строку, начинающуюся с <code>const PRIVATE_PASSWORD_HASH = '...'</code>.</li>
-            <li>Замените длинную строку в кавычках на хеш выше (нажмите «📋 Скопировать хеш»).</li>
-            <li>Прокрутите вниз, нажмите зелёную кнопку <strong>Commit changes</strong>.</li>
-            <li>Подождите ~1 минуту, пока GitHub Pages пересоберётся.</li>
-          </ol>
-        </div>
+      <div class="toolbar" style="margin-top:12px">
+        <button class="btn btn-primary" id="save-priv-repo">💾 Сохранить</button>
+        <button class="btn btn-secondary" id="check-priv-repo" ${!privateRepoRaw ? 'disabled' : ''}>🔍 Проверить подключение</button>
       </div>
+      <div id="priv-status" style="margin-top:12px"></div>
     </section>
 
     <section class="section">
-      <h3>🔑 GitHub-токен</h3>
+      <h3>🔑 GitHub-токен (публичный репо)</h3>
       <p class="section-desc">Сейчас подключено: <code>${escapeHtml(repo.owner)}/${escapeHtml(repo.name)}</code></p>
+      <p class="section-desc" style="opacity:.7;font-size:13px">Используйте тот же токен для обоих репозиториев — он подходит, если у него есть права на оба.</p>
       <button class="btn btn-danger" id="clear-pat">Очистить токен и выйти</button>
     </section>
   `;
 
-  const pwdIn = el.querySelector('#new-pwd');
-  const hashBlock = el.querySelector('#hash-block');
-  const hashOut = el.querySelector('#hash-out');
-  let currentHash = '';
+  const privRepoInput = el.querySelector('#priv-repo');
+  const privStatus = el.querySelector('#priv-status');
 
-  pwdIn.addEventListener('input', async () => {
-    const v = pwdIn.value;
-    if (!v) { hashBlock.style.display = 'none'; currentHash = ''; return; }
-    currentHash = await sha256Hex(v);
-    hashOut.textContent = currentHash;
-    hashBlock.style.display = 'block';
+  el.querySelector('#save-priv-repo').addEventListener('click', () => {
+    const val = privRepoInput.value.trim();
+    gh.setPrivateRepo(val);
+    toast(val ? `Приватный репо сохранён: ${val}` : 'Приватный репо очищен');
+    el.querySelector('#check-priv-repo').disabled = !val;
+    renderApp();
   });
 
-  el.querySelector('#pwd-copy').addEventListener('click', () => {
-    if (!currentHash) return;
-    navigator.clipboard.writeText(currentHash).then(() => toast('Скопировано'));
-  });
-
-  el.querySelector('#pwd-auto').addEventListener('click', async () => {
-    if (!currentHash) return;
-    const btn = el.querySelector('#pwd-auto'); btn.dataset.loading = '1'; btn.textContent = 'Записываю…';
+  el.querySelector('#check-priv-repo').addEventListener('click', async () => {
+    const btn = el.querySelector('#check-priv-repo');
+    btn.dataset.loading = '1'; btn.textContent = 'Проверяю…';
+    privStatus.innerHTML = '';
     try {
-      const file = await gh.getFile(PRIVATE_JS_PATH);
-      if (!file) throw new Error(`Файл ${PRIVATE_JS_PATH} не найден в репозитории`);
-      const updated = file.content.replace(
-        /const PRIVATE_PASSWORD_HASH = '[0-9a-f]{64}'/,
-        `const PRIVATE_PASSWORD_HASH = '${currentHash}'`
-      );
-      if (updated === file.content) throw new Error('Не удалось найти строку с хешем — обновите вручную');
-      await gh.putFileText(PRIVATE_JS_PATH, updated, `update private password hash`, file.sha);
-      toast('Пароль обновлён. Через ~1 минуту вступит в силу.');
-      pwdIn.value = ''; hashBlock.style.display = 'none';
+      await gh.checkPrivateAuth();
+      privStatus.innerHTML = `<div class="callout" style="border-color:var(--success)">✅ Подключено! Репозиторий найден и доступен.</div>`;
     } catch (e) {
-      toast('Ошибка: ' + e.message, 'error', 8000);
+      privStatus.innerHTML = `<div class="callout" style="border-color:var(--danger)">❌ Ошибка: ${escapeHtml(e.message)}<br><small>Убедитесь, что токен имеет права на этот репозиторий и название написано правильно.</small></div>`;
     }
-    btn.dataset.loading = ''; btn.textContent = '⚡ Записать в репозиторий автоматически';
+    btn.dataset.loading = ''; btn.textContent = '🔍 Проверить подключение';
   });
 
   el.querySelector('#clear-pat').addEventListener('click', () => {

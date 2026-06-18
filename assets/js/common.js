@@ -17,6 +17,25 @@ export async function loadCatalog() {
   return await res.json();
 }
 
+// Загрузить catalog.json из приватного репозитория через GitHub API
+export async function loadPrivateCatalog() {
+  const token = localStorage.getItem('gh_pat') || '';
+  const repoRaw = localStorage.getItem('gh_private_repo') || '';
+  const [owner, name] = repoRaw.split('/');
+  if (!token || !owner || !name) throw new Error('Приватный репо не настроен');
+  const url = `https://api.github.com/repos/${owner}/${name}/contents/catalog.json`;
+  const res = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/vnd.github.raw+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    },
+  });
+  if (res.status === 404) return { version: 1, scripts: [], categories: [] };
+  if (!res.ok) throw new Error(`GitHub API: ${res.status}`);
+  return await res.json();
+}
+
 export function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
