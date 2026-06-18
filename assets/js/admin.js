@@ -473,7 +473,7 @@ function openScriptModal(id) {
       delete scriptForCatalog.visibility; // visibility не хранится в catalog.json
 
       const catFile = await gh.getFile(CATALOG_PATH, isPrivate);
-      const cat = catFile ? JSON.parse(catFile.content) : { version: 1, scripts: [], categories: [] };
+      const cat = (catFile && catFile.content) ? JSON.parse(catFile.content) : { version: 1, scripts: [], categories: [] };
       const idx = cat.scripts.findIndex((x) => x.id === s.id);
       if (idx >= 0) cat.scripts[idx] = scriptForCatalog; else cat.scripts.push(scriptForCatalog);
       // Убеждаемся что категории синхронизированы
@@ -486,7 +486,7 @@ function openScriptModal(id) {
         const oldPrivate = wasPrivate;
         const oldCatFile = await gh.getFile(CATALOG_PATH, oldPrivate);
         if (oldCatFile) {
-          const oldCat = JSON.parse(oldCatFile.content);
+          const oldCat = (oldCatFile.content) ? JSON.parse(oldCatFile.content) : { version: 1, scripts: [], categories: [] };
           oldCat.scripts = (oldCat.scripts || []).filter((x) => x.id !== s.id);
           await gh.putFileText(CATALOG_PATH, JSON.stringify(oldCat, null, 2), `remove script (moved): ${s.id}`, oldCatFile.sha, oldPrivate);
         }
@@ -609,7 +609,7 @@ function openCategoryModal(id) {
         if (usePrivate && !gh.hasPrivateRepo()) continue;
         const catFile = await gh.getFile(CATALOG_PATH, usePrivate);
         if (!catFile && usePrivate) continue; // приватный каталог ещё не создан — пропускаем
-        const cat = catFile ? JSON.parse(catFile.content) : { version: 1, scripts: [], categories: [] };
+        const cat = (catFile && catFile.content) ? JSON.parse(catFile.content) : { version: 1, scripts: [], categories: [] };
         cat.categories = cat.categories || [];
         const idx = cat.categories.findIndex((x) => x.id === c.id);
         if (idx >= 0) cat.categories[idx] = c; else cat.categories.push(c);
