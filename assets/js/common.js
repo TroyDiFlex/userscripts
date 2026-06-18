@@ -4,7 +4,7 @@
 // owner — ваш логин на GitHub (например, 'ivanov')
 // name  — название репозитория (например, 'scripts')
 // После замены: commit -> GitHub Pages пересоберётся за ~1 минуту.
-export const REPO = { owner: 'GITHUB_USER', name: 'REPO_NAME' };
+export const REPO = { owner: 'TroyDiFlex', name: 'userscripts' };
 // ============================================================
 
 export function jsdelivrUrl(filePath) {
