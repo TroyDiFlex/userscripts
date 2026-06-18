@@ -6,7 +6,7 @@
       "name": "Помощник актуализации цен",
       "description": "Анализирует первые N объявлений конкурентов, подсвечивает по цене и считает рекомендуемую цену с наценкой.",
       "category": "avito",
-      "version": "1.4",
+      "version": "1.5",
       "file": "scripts/avito/price-helper.user.js",
       "icon": "🏷️",
       "color": "#FF6B35",
