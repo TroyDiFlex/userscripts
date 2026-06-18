@@ -11,7 +11,9 @@
       "file": "scripts/avito/price-helper.user.js",
       "icon": "🏷️",
       "color": "#FF6B35",
-      "images": [],
+      "images": [
+        "images/scripts/price-helper-1781807128927-0.png"
+      ],
       "tags": [
         "авито",
         "цены",
