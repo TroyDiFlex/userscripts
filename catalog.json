@@ -12,7 +12,11 @@
       "icon": "🏷️",
       "color": "#FF6B35",
       "images": [],
-      "tags": ["авито", "цены", "конкуренты"],
+      "tags": [
+        "авито",
+        "цены",
+        "конкуренты"
+      ],
       "installCount": 0,
       "updatedAt": "2026-06-18"
     },
@@ -27,7 +31,11 @@
       "icon": "📊",
       "color": "#6C63FF",
       "images": [],
-      "tags": ["авито", "продвижение", "статистика"],
+      "tags": [
+        "авито",
+        "продвижение",
+        "статистика"
+      ],
       "installCount": 0,
       "updatedAt": "2026-06-18"
     },
@@ -42,7 +50,12 @@
       "icon": "📈",
       "color": "#00B894",
       "images": [],
-      "tags": ["авито", "вордстат", "парсер", "аналитика"],
+      "tags": [
+        "авито",
+        "вордстат",
+        "парсер",
+        "аналитика"
+      ],
       "installCount": 0,
       "updatedAt": "2026-06-18"
     },
@@ -57,7 +70,11 @@
       "icon": "🔢",
       "color": "#0984E3",
       "images": [],
-      "tags": ["tecalliance", "номера", "копирование"],
+      "tags": [
+        "tecalliance",
+        "номера",
+        "копирование"
+      ],
       "installCount": 0,
       "updatedAt": "2026-06-18"
     },
@@ -72,7 +89,11 @@
       "icon": "📋",
       "color": "#0984E3",
       "images": [],
-      "tags": ["tecalliance", "применимость", "копирование"],
+      "tags": [
+        "tecalliance",
+        "применимость",
+        "копирование"
+      ],
       "installCount": 0,
       "updatedAt": "2026-06-18"
     },
@@ -87,7 +108,10 @@
       "icon": "🎮",
       "color": "#1B2838",
       "images": [],
-      "tags": ["steam", "скидки"],
+      "tags": [
+        "steam",
+        "скидки"
+      ],
       "installCount": 0,
       "updatedAt": "2026-06-18"
     },
@@ -102,7 +126,10 @@
       "icon": "👤",
       "color": "#1B2838",
       "images": [],
-      "tags": ["steam", "профиль"],
+      "tags": [
+        "steam",
+        "профиль"
+      ],
       "installCount": 0,
       "updatedAt": "2026-06-18"
     },
@@ -117,7 +144,10 @@
       "icon": "⏱️",
       "color": "#E17055",
       "images": [],
-      "tags": ["внутреннее", "время"],
+      "tags": [
+        "внутреннее",
+        "время"
+      ],
       "installCount": 0,
       "updatedAt": "2026-06-18"
     },
@@ -132,7 +162,10 @@
       "icon": "✅",
       "color": "#00CEC9",
       "images": [],
-      "tags": ["внутреннее", "задачи"],
+      "tags": [
+        "внутреннее",
+        "задачи"
+      ],
       "installCount": 0,
       "updatedAt": "2026-06-18"
     },
@@ -147,15 +180,35 @@
       "icon": "⌨️",
       "color": "#A29BFE",
       "images": [],
-      "tags": ["внутреннее", "511", "горячие клавиши"],
+      "tags": [
+        "внутреннее",
+        "511",
+        "горячие клавиши"
+      ],
       "installCount": 0,
       "updatedAt": "2026-06-18"
     }
   ],
   "categories": [
-    { "id": "avito",       "name": "Авито",       "icon": "🏪" },
-    { "id": "tecalliance", "name": "TecAlliance", "icon": "🔧" },
-    { "id": "steam",       "name": "Steam",       "icon": "🎮" },
-    { "id": "internal",    "name": "Внутренние",  "icon": "🔒" }
+    {
+      "id": "avito",
+      "name": "Авито",
+      "icon": "🏪"
+    },
+    {
+      "id": "tecalliance",
+      "name": "TecAlliance",
+      "icon": "🔧"
+    },
+    {
+      "id": "steam",
+      "name": "Steam",
+      "icon": "🎮"
+    },
+    {
+      "id": "internal",
+      "name": "Внутренние",
+      "icon": "🔒"
+    }
   ]
 }
