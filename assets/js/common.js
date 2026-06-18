@@ -63,7 +63,7 @@ export function initStore({ visibility, mountEl, searchEl, filtersEl, emptyMsg =
   }
 
   function visibleScripts() {
-    const list = (catalog?.scripts || []).filter((s) => s.visibility === visibility);
+    const list = (catalog?.scripts || []).filter((s) => (s.visibility || 'public') === visibility);
     return list.filter((s) => {
       if (activeCategory !== 'all' && s.category !== activeCategory) return false;
       if (query) {
@@ -79,7 +79,7 @@ export function initStore({ visibility, mountEl, searchEl, filtersEl, emptyMsg =
     if (!filtersEl) return;
     const cats = (catalog?.categories || []);
     const visibleCats = cats.filter((c) =>
-      (catalog?.scripts || []).some((s) => s.visibility === visibility && s.category === c.id)
+      (catalog?.scripts || []).some((s) => (s.visibility || 'public') === visibility && s.category === c.id)
     );
     filtersEl.innerHTML =
       `<button class="chip ${activeCategory === 'all' ? 'active' : ''}" data-cat="all">Все</button>` +
