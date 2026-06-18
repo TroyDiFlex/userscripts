@@ -10,9 +10,7 @@
       "file": "scripts/avito/price-helper.user.js",
       "icon": "🏷️",
       "color": "#FF6B35",
-      "images": [
-        "images/scripts/price-helper-1781807359655-0.png"
-      ],
+      "images": [],
       "tags": [
         "авито",
         "цены",
@@ -105,6 +103,16 @@
       "id": "tecalliance",
       "name": "TecAlliance",
       "icon": "🔧"
+    },
+    {
+      "id": "steam",
+      "name": "Steam",
+      "icon": "🎮"
+    },
+    {
+      "id": "internal",
+      "name": "Внутренние",
+      "icon": "🔒"
     }
   ]
 }
