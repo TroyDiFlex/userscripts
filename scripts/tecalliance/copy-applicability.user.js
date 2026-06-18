@@ -1,8 +1,8 @@
-﻿// ==UserScript==
-// @name         TecAlliance вЂ” РЎРєРѕРїРёСЂРѕРІР°С‚СЊ РїСЂРёРјРµРЅРёРјРѕСЃС‚СЊ
+// ==UserScript==
+// @name         TecAlliance — Скопировать применимость
 // @namespace    https://www.tecalliance.cn/
 // @version      1.5
-// @description  РџР»Р°РІР°СЋС‰Р°СЏ РєРЅРѕРїРєР°, СЃРѕР±РёСЂР°СЋС‰Р°СЏ РїСЂРёРјРµРЅРёРјРѕСЃС‚СЊ (Р°РІС‚РѕРјРѕР±РёР»Рё) Рё РєРѕРїРёСЂСѓСЋС‰Р°СЏ РёС… РІ 5 СЃС‚РѕР»Р±С†РѕРІ РґР»СЏ Google РўР°Р±Р»РёС†
+// @description  Плавающая кнопка, собирающая применимость (автомобили) и копирующая их в 5 столбцов для Google Таблиц
 // @author       TroyDiFlex
 // @match        https://www.tecalliance.cn/*/part/*
 // @match        https://*.tecalliance.cn/*/part/*
@@ -17,13 +17,13 @@
 (function () {
     'use strict';
 
-    // РќРµ РґРѕР±Р°РІР»СЏС‚СЊ РєРЅРѕРїРєСѓ РїРѕРІС‚РѕСЂРЅРѕ РїСЂРё РЅР°РІРёРіР°С†РёРё (SPA)
+    // Не добавлять кнопку повторно при навигации (SPA)
     if (document.getElementById('tec-copy-app-btn')) return;
 
-    /* в”Ђв”Ђ РљРЅРѕРїРєР° в”Ђв”Ђ */
+    /* ── Кнопка ── */
     var btn = document.createElement('button');
     btn.id = 'tec-copy-app-btn';
-    btn.textContent = 'рџљ— РЎРєРѕРїРёСЂРѕРІР°С‚СЊ РїСЂРёРјРµРЅРёРјРѕСЃС‚СЊ';
+    btn.textContent = '🚗 Скопировать применимость';
     btn.style.cssText = [
         'position:fixed',
         'bottom:24px',
@@ -52,19 +52,19 @@
         btn.style.boxShadow = '0 4px 20px rgba(0,0,0,0.35)';
     };
 
-    /* в”Ђв”Ђ Р›РѕРіРёРєР° СЃР±РѕСЂР° РїСЂРёРјРµРЅРёРјРѕСЃС‚Рё в”Ђв”Ђ */
+    /* ── Логика сбора применимости ── */
     btn.onclick = function () {
         var rows = document.querySelectorAll('table.v-table tbody tr');
 
-        // 5 СЃС‚РѕР»Р±С†РѕРІ: РњР°СЂРєР°, РњРѕРґРµР»СЊ, РџР»Р°С‚С„РѕСЂРјР°, РњРѕРґРёС„РёРєР°С†РёСЏ, РљРѕРґ РґРІРёРіР°С‚РµР»СЏ
-        // Р”Р»СЏ РєР°Р¶РґРѕРіРѕ СЃС‚РѕР»Р±С†Р° СЃРѕР±РёСЂР°РµРј СѓРЅРёРєР°Р»СЊРЅС‹Рµ Р·РЅР°С‡РµРЅРёСЏ (СЃ СЃРѕС…СЂР°РЅРµРЅРёРµРј РїРѕСЂСЏРґРєР°)
+        // 5 столбцов: Марка, Модель, Платформа, Модификация, Код двигателя
+        // Для каждого столбца собираем уникальные значения (с сохранением порядка)
         var columns = [[], [], [], [], []];
         var seenPerCol = [{}, {}, {}, {}, {}];
 
-        // Р”РѕР±Р°РІР»СЏРµС‚ Р·РЅР°С‡РµРЅРёРµ РІ СЃС‚РѕР»Р±РµС†, РµСЃР»Рё РµРіРѕ С‚Р°Рј РµС‰С‘ РЅРµС‚
+        // Добавляет значение в столбец, если его там ещё нет
         function addUnique(colIndex, value) {
             if (!value) return;
-            // Р Р°Р·Р±РёРІР°РµРј РїРѕ В«;В» вЂ” РєР°Р¶РґР°СЏ С‡Р°СЃС‚СЊ РєР°Рє РѕС‚РґРµР»СЊРЅРѕРµ Р·РЅР°С‡РµРЅРёРµ
+            // Разбиваем по «;» — каждая часть как отдельное значение
             value.split(';').forEach(function (part) {
                 var v = part.trim();
                 if (v && !seenPerCol[colIndex][v]) {
@@ -83,7 +83,7 @@
             var platformText = tds[2] ? tds[2].textContent.trim() : "";
             var vTypeText = tds[3] ? tds[3].textContent.trim() : "";
 
-            // --- РћС‡РёСЃС‚РєР° РјРѕРґРёС„РёРєР°С†РёРё ---
+            // --- Очистка модификации ---
             var modClean = vTypeText
                 .replace(/\b\d[\.,]\d\b/gi, '')
                 .replace(/\b(AWD|FWD|RWD|Hybrid|MHEV|4WD|EV|xDrive|sDrive|4x4|quattro|4motion|4MATIC)\b/gi, '')
@@ -93,7 +93,7 @@
                 .replace(/\s+/g, ' ')
                 .trim();
 
-            // --- РР·РІР»РµС‡РµРЅРёРµ Engine Code ---
+            // --- Извлечение Engine Code ---
             var engineRaw = tds[6] ? tds[6].textContent.trim() : "";
             var engineParts = engineRaw.split('/');
             var engineCode = "";
@@ -108,15 +108,15 @@
             addUnique(4, engineCode);
         });
 
-        // РќР°С…РѕРґРёРј РјР°РєСЃРёРјР°Р»СЊРЅСѓСЋ РґР»РёРЅСѓ СЃСЂРµРґРё СЃС‚РѕР»Р±С†РѕРІ
+        // Находим максимальную длину среди столбцов
         var maxRows = Math.max.apply(null, columns.map(function (col) { return col.length; }));
 
         if (maxRows === 0) {
-            alert('вќЊ РџСЂРёРјРµРЅРёРјРѕСЃС‚СЊ РЅРµ РЅР°Р№РґРµРЅР°!\nРЈР±РµРґРёС‚РµСЃСЊ, С‡С‚Рѕ С‚Р°Р±Р»РёС†Р° СЃ Р°РІС‚РѕРјРѕР±РёР»СЏРјРё ("Compatible Vehicles") Р·Р°РіСЂСѓР¶РµРЅР° РЅР° СЃС‚СЂР°РЅРёС†Рµ.');
+            alert('❌ Применимость не найдена!\nУбедитесь, что таблица с автомобилями ("Compatible Vehicles") загружена на странице.');
             return;
         }
 
-        // РЎРѕР±РёСЂР°РµРј СЃС‚СЂРѕРєРё: РєР°Р¶РґР°СЏ СЃС‚СЂРѕРєР° вЂ” Р·РЅР°С‡РµРЅРёСЏ РёР· 5 СЃС‚РѕР»Р±С†РѕРІ С‡РµСЂРµР· С‚Р°Р±СѓР»СЏС†РёСЋ
+        // Собираем строки: каждая строка — значения из 5 столбцов через табуляцию
         var outputLines = [];
         for (var i = 0; i < maxRows; i++) {
             var row = [];
@@ -128,10 +128,10 @@
 
         var text = outputLines.join('\n');
 
-        /* в”Ђв”Ђ Р›РѕРіРёРєР° РєРѕРїРёСЂРѕРІР°РЅРёСЏ РІ Р±СѓС„РµСЂ в”Ђв”Ђ */
+        /* ── Логика копирования в буфер ── */
         function onSuccess(n) {
-            btn.textContent = 'вњ… ' + n + ' Р°РІС‚Рѕ!';
-            setTimeout(function () { btn.textContent = 'рџљ— РЎРєРѕРїРёСЂРѕРІР°С‚СЊ РїСЂРёРјРµРЅРёРјРѕСЃС‚СЊ'; }, 3000);
+            btn.textContent = '✅ ' + n + ' авто!';
+            setTimeout(function () { btn.textContent = '🚗 Скопировать применимость'; }, 3000);
         }
 
         function fallbackCopy(t, n) {
@@ -145,12 +145,12 @@
                 document.execCommand('copy');
                 onSuccess(n);
             } catch (e) {
-                prompt('РќРµ СѓРґР°Р»РѕСЃСЊ СЃРєРѕРїРёСЂРѕРІР°С‚СЊ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё. РЎРєРѕРїРёСЂСѓР№С‚Рµ РІСЂСѓС‡РЅСѓСЋ (Ctrl+A в†’ Ctrl+C):', t);
+                prompt('Не удалось скопировать автоматически. Скопируйте вручную (Ctrl+A → Ctrl+C):', t);
             }
             document.body.removeChild(ta);
         }
 
-        // РџС‹С‚Р°РµРјСЃСЏ СЃРєРѕРїРёСЂРѕРІР°С‚СЊ СЃР°РјС‹РјРё РЅР°РґРµР¶РЅС‹РјРё СЃРїРѕСЃРѕР±Р°РјРё
+        // Пытаемся скопировать самыми надежными способами
         if (typeof GM_setClipboard !== 'undefined') {
             GM_setClipboard(text, 'text');
             onSuccess(outputLines.length);

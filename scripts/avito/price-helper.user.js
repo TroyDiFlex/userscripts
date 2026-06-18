@@ -1,8 +1,8 @@
-﻿// ==UserScript==
-// @name         РџРѕРјРѕС‰РЅРёРє Р°РєС‚СѓР°Р»РёР·Р°С†РёРё С†РµРЅ
+// ==UserScript==
+// @name         Помощник актуализации цен
 // @namespace    http://tampermonkey.net/
 // @version      1.6
-// @description  РђРЅР°Р»РёР·РёСЂСѓРµС‚ РїРµСЂРІС‹Рµ N РѕР±СЉСЏРІР»РµРЅРёР№ РєРѕРЅРєСѓСЂРµРЅС‚РѕРІ, РїРѕРґСЃРІРµС‡РёРІР°РµС‚ РїРѕ С†РµРЅРµ Рё СЃС‡РёС‚Р°РµС‚ СЂРµРєРѕРјРµРЅРґСѓРµРјСѓСЋ С†РµРЅСѓ СЃ РЅР°С†РµРЅРєРѕР№
+// @description  Анализирует первые N объявлений конкурентов, подсвечивает по цене и считает рекомендуемую цену с наценкой
 // @author       TroyDiFlex
 // @match        https://www.avito.ru/*
 // @updateURL    https://cdn.jsdelivr.net/gh/troydiflex/userscripts@main/scripts/avito/price-helper.user.js
@@ -16,32 +16,32 @@
 
 
 
-    // в•”в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•—
-    // в•‘                    вљ™пёЏ  РќРђРЎРўР РћР™РљР                            в•‘
-    // в•љв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ќ
+    // ╔══════════════════════════════════════════════════════════════╗
+    // ║                    ⚙️  НАСТРОЙКИ                            ║
+    // ╚══════════════════════════════════════════════════════════════╝
 
     const CONFIG = {
 
-        // РЎРєРѕР»СЊРєРѕ РїРµСЂРІС‹С… РѕР±СЉСЏРІР»РµРЅРёР№ Р°РЅР°Р»РёР·РёСЂРѕРІР°С‚СЊ (РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ 8)
-        РљРћР›РР§Р•РЎРўР’Рћ_РћР‘РЄРЇР’Р›Р•РќРР™: 8,
+        // Сколько первых объявлений анализировать (по умолчанию 8)
+        КОЛИЧЕСТВО_ОБЪЯВЛЕНИЙ: 8,
 
-        // РџСЂРѕС†РµРЅС‚ РЅР°С†РµРЅРєРё (РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ 10)
-        РџР РћР¦Р•РќРў_РќРђР¦Р•РќРљР: 10,
+        // Процент наценки (по умолчанию 10)
+        ПРОЦЕНТ_НАЦЕНКИ: 10,
 
-        // РњРёРЅРёРјР°Р»СЊРЅР°СЏ С†РµРЅР°, РєРѕС‚РѕСЂСѓСЋ СѓС‡РёС‚С‹РІР°РµРј (РІСЃС‘ С‡С‚Рѕ РЅРёР¶Рµ вЂ” РёРіРЅРѕСЂРёСЂСѓРµС‚СЃСЏ).
-        // В«Р‘РµСЃРїР»Р°С‚РЅРѕВ» Рё В«Р¦РµРЅР° РЅРµ СѓРєР°Р·Р°РЅР°В» РёРіРЅРѕСЂРёСЂСѓСЋС‚СЃСЏ РІСЃРµРіРґР°.
-        РњРРќРРњРђР›Р¬РќРђРЇ_Р¦Р•РќРђ: 100,
+        // Минимальная цена, которую учитываем (всё что ниже — игнорируется).
+        // «Бесплатно» и «Цена не указана» игнорируются всегда.
+        МИНИМАЛЬНАЯ_ЦЕНА: 100,
 
-        // Р—Р°РґРµСЂР¶РєР° РїРµСЂРІРѕРіРѕ Р·Р°РїСѓСЃРєР° (РјСЃ).
-        // Р•СЃР»Рё СЃС‚СЂР°РЅРёС†Р° Р·Р°РіСЂСѓР¶Р°РµС‚СЃСЏ РґРѕР»РіРѕ, СЃРєСЂРёРїС‚ РјРѕР¶РµС‚ РЅРµ СЃСЂР°Р±РѕС‚Р°С‚СЊ вЂ”
-        // РїРѕРїСЂРѕР±СѓР№С‚Рµ СѓРІРµР»РёС‡РёС‚СЊ СЌС‚Рѕ Р·РЅР°С‡РµРЅРёРµ (РЅР°РїСЂРёРјРµСЂ, РґРѕ 3000).
-        Р—РђР”Р•Р Р–РљРђ_РџР•Р Р’РћР“Рћ_Р—РђРџРЈРЎРљРђ: 10,
+        // Задержка первого запуска (мс).
+        // Если страница загружается долго, скрипт может не сработать —
+        // попробуйте увеличить это значение (например, до 3000).
+        ЗАДЕРЖКА_ПЕРВОГО_ЗАПУСКА: 10,
 
-        // Р—Р°РґРµСЂР¶РєР° РїРѕРІС‚РѕСЂРЅРѕРіРѕ РїРµСЂРµСЃС‡С‘С‚Р° РїРѕСЃР»Рµ РЅР°РІРёРіР°С†РёРё РїРѕ СЃР°Р№С‚Сѓ (РјСЃ).
-        Р—РђР”Р•Р Р–РљРђ_РџР•Р Р•РЎР§РЃРўРђ: 10,
+        // Задержка повторного пересчёта после навигации по сайту (мс).
+        ЗАДЕРЖКА_ПЕРЕСЧЁТА: 10,
     };
 
-    // ========== РЎРўРР›Р ==========
+    // ========== СТИЛИ ==========
     GM_addStyle(`
         .tm-calc-price {
             display: inline-block;
@@ -88,96 +88,96 @@
         }
     `);
 
-    // ========== Р›РћР“РРљРђ ==========
+    // ========== ЛОГИКА ==========
 
     /**
-     * Р’С‹С‡РёСЃР»СЏРµС‚: С†РµРЅР° Г— 1.1, РѕРєСЂСѓРіР»РµРЅРёРµ РІРІРµСЂС… РґРѕ СЃРѕС‚РµРЅ, РјРёРЅСѓСЃ 1
+     * Вычисляет: цена × 1.1, округление вверх до сотен, минус 1
      */
     function calcMarkup(price) {
-        const multiplier = 1 + CONFIG.РџР РћР¦Р•РќРў_РќРђР¦Р•РќРљР / 100;
+        const multiplier = 1 + CONFIG.ПРОЦЕНТ_НАЦЕНКИ / 100;
         const multiplied = price * multiplier;
         const roundedUp = Math.ceil(multiplied / 100) * 100;
         return roundedUp - 1;
     }
 
     /**
-     * РР·РІР»РµРєР°РµС‚ С‡РёСЃР»РѕРІСѓСЋ С†РµРЅСѓ РёР· СЌР»РµРјРµРЅС‚Р° item-price РєРѕРЅС‚РµР№РЅРµСЂР°.
-     * Р’РѕР·РІСЂР°С‰Р°РµС‚ С‡РёСЃР»Рѕ РёР»Рё null, РµСЃР»Рё С†РµРЅР° РЅРµ РїРѕРґС…РѕРґРёС‚.
+     * Извлекает числовую цену из элемента item-price контейнера.
+     * Возвращает число или null, если цена не подходит.
      */
     function extractPrice(itemEl) {
-        // РџСЂРѕР±СѓРµРј meta itemprop="price" (СЃР°РјС‹Р№ РЅР°РґС‘Р¶РЅС‹Р№)
+        // Пробуем meta itemprop="price" (самый надёжный)
         const priceMeta = itemEl.querySelector('[data-marker="item-price"] meta[itemprop="price"]');
         if (priceMeta) {
             const val = parseInt(priceMeta.getAttribute('content'), 10);
-            if (!isNaN(val) && val >= CONFIG.РњРРќРРњРђР›Р¬РќРђРЇ_Р¦Р•РќРђ) return val;
+            if (!isNaN(val) && val >= CONFIG.МИНИМАЛЬНАЯ_ЦЕНА) return val;
             return null;
         }
 
-        // Р¤РѕР»Р±СЌРє: С‚РµРєСЃС‚ РёР· item-price-value
+        // Фолбэк: текст из item-price-value
         const priceValueEl = itemEl.querySelector('[data-marker="item-price-value"]');
         if (!priceValueEl) return null;
-        const text = priceValueEl.textContent.replace(/\s/g, '').replace(/в‚Ѕ/g, '').replace(/\u00a0/g, '');
+        const text = priceValueEl.textContent.replace(/\s/g, '').replace(/₽/g, '').replace(/\u00a0/g, '');
         const val = parseInt(text, 10);
-        if (!isNaN(val) && val >= CONFIG.РњРРќРРњРђР›Р¬РќРђРЇ_Р¦Р•РќРђ) return val;
+        if (!isNaN(val) && val >= CONFIG.МИНИМАЛЬНАЯ_ЦЕНА) return val;
         return null;
     }
 
     /**
-     * Р¤РѕСЂРјР°С‚РёСЂСѓРµС‚ С‡РёСЃР»Рѕ РІ СЂСѓСЃСЃРєРёР№ С„РѕСЂРјР°С‚ СЃ РїСЂРѕР±РµР»Р°РјРё: 8 399
+     * Форматирует число в русский формат с пробелами: 8 399
      */
     function formatPrice(n) {
         return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0');
     }
 
     /**
-     * РћСЃРЅРѕРІРЅР°СЏ С„СѓРЅРєС†РёСЏ вЂ” РІС‹Р·С‹РІР°РµС‚СЃСЏ РїСЂРё Р·Р°РіСЂСѓР·РєРµ Рё РїСЂРё РЅР°РІРёРіР°С†РёРё (SPA)
+     * Основная функция — вызывается при загрузке и при навигации (SPA)
      */
     function run() {
-        // РЈРґР°Р»РёРј РїСЂРµРґС‹РґСѓС‰РёРµ РїРѕРјРµС‚РєРё РµСЃР»Рё СЃРєСЂРёРїС‚ РѕС‚СЂР°Р±Р°С‚С‹РІР°Р» СЂР°РЅРµРµ
+        // Удалим предыдущие пометки если скрипт отрабатывал ранее
         document.querySelectorAll('.tm-calc-price').forEach(el => el.remove());
         document.querySelectorAll('.tm-highlight-green, .tm-highlight-yellow, .tm-highlight-red, .tm-highlight-grey').forEach(el => {
             el.classList.remove('tm-highlight-green', 'tm-highlight-yellow', 'tm-highlight-red', 'tm-highlight-grey');
         });
 
-        // РџРѕР»СѓС‡Р°РµРј РІСЃРµ РѕР±СЉСЏРІР»РµРЅРёСЏ
+        // Получаем все объявления
         const allItems = document.querySelectorAll('[data-marker="item"]');
         if (allItems.length === 0) return;
         observer.disconnect();
 
 
-        // Р‘РµСЂС‘Рј РїРµСЂРІС‹Рµ N РѕР±СЉСЏРІР»РµРЅРёР№
-        const items = Array.from(allItems).slice(0, CONFIG.РљРћР›РР§Р•РЎРўР’Рћ_РћР‘РЄРЇР’Р›Р•РќРР™);
+        // Берём первые N объявлений
+        const items = Array.from(allItems).slice(0, CONFIG.КОЛИЧЕСТВО_ОБЪЯВЛЕНИЙ);
 
-        // РЎРѕР±РёСЂР°РµРј РјР°СЃСЃРёРІ {element, price}
+        // Собираем массив {element, price}
         const itemsWithPrices = [];
         for (const item of items) {
             const price = extractPrice(item);
             itemsWithPrices.push({ el: item, price });
         }
 
-        // --- Р”РѕР±Р°РІР»СЏРµРј РІС‹С‡РёСЃР»РµРЅРЅСѓСЋ С†РµРЅСѓ РєРѕ РІСЃРµРј, Сѓ РєРѕРіРѕ РµСЃС‚СЊ С†РµРЅР° ---
+        // --- Добавляем вычисленную цену ко всем, у кого есть цена ---
         for (const { el, price } of itemsWithPrices) {
             if (price === null) continue;
 
             const priceValueEl = el.querySelector('[data-marker="item-price-value"]');
             if (!priceValueEl) continue;
 
-            // РџСЂРѕРІРµСЂСЏРµРј, РЅРµ РґРѕР±Р°РІР»РµРЅРѕ Р»Рё СѓР¶Рµ
+            // Проверяем, не добавлено ли уже
             if (priceValueEl.parentElement.querySelector('.tm-calc-price')) continue;
 
             const markup = calcMarkup(price);
             const badge = document.createElement('span');
             badge.className = 'tm-calc-price';
-            const mult = 1 + CONFIG.РџР РћР¦Р•РќРў_РќРђР¦Р•РќРљР / 100;
-            badge.textContent = `в†’ ${formatPrice(markup)} в‚Ѕ`;
-            badge.title = `${formatPrice(price)} Г— ${mult} = ${formatPrice(Math.round(price * mult))}, в†‘100 = ${formatPrice(Math.ceil(price * mult / 100) * 100)}, в€’1 = ${formatPrice(markup)}`;
+            const mult = 1 + CONFIG.ПРОЦЕНТ_НАЦЕНКИ / 100;
+            badge.textContent = `→ ${formatPrice(markup)} ₽`;
+            badge.title = `${formatPrice(price)} × ${mult} = ${formatPrice(Math.round(price * mult))}, ↑100 = ${formatPrice(Math.ceil(price * mult / 100) * 100)}, −1 = ${formatPrice(markup)}`;
 
-            // Р’СЃС‚Р°РІР»СЏРµРј РїРѕСЃР»Рµ <strong>, РєРѕС‚РѕСЂС‹Р№ СЃРѕРґРµСЂР¶РёС‚ С†РµРЅСѓ
+            // Вставляем после <strong>, который содержит цену
             const strong = priceValueEl.closest('strong') || priceValueEl.parentElement;
             strong.parentElement.insertBefore(badge, strong.nextSibling);
         }
 
-        // --- РќР°С…РѕРґРёРј 4 СЃР°РјС‹С… РґРµС€С‘РІС‹С… СѓРЅРёРєР°Р»СЊРЅС‹С… С†РµРЅС‹ ---
+        // --- Находим 4 самых дешёвых уникальных цены ---
         const validPrices = itemsWithPrices
             .filter(x => x.price !== null)
             .map(x => x.price);
@@ -189,7 +189,7 @@
         const third = uniqueSorted[2] ?? null;
         const fourth = uniqueSorted[3] ?? null;
 
-        // --- РџРѕРґСЃРІРµС‡РёРІР°РµРј ---
+        // --- Подсвечиваем ---
         for (const { el, price } of itemsWithPrices) {
             if (price === null) continue;
 
@@ -204,7 +204,7 @@
             }
         }
 
-        console.log('[РђРІРёС‚Рѕ Price Highlighter]', {
+        console.log('[Авито Price Highlighter]', {
             items: items.length,
             withPrices: itemsWithPrices.filter(x => x.price !== null).length,
             cheapest, second, third, fourth
@@ -212,16 +212,16 @@
 observer.observe(document.body, { childList: true, subtree: true });
 }
 
-    // ========== Р—РђРџРЈРЎРљ ==========
+    // ========== ЗАПУСК ==========
 
-    // РџРµСЂРІС‹Р№ Р·Р°РїСѓСЃРє СЃ Р·Р°РґРµСЂР¶РєРѕР№ (РґРѕР¶РёРґР°РµРјСЃСЏ СЂРµРЅРґРµСЂР°)
-    setTimeout(run, CONFIG.Р—РђР”Р•Р Р–РљРђ_РџР•Р Р’РћР“Рћ_Р—РђРџРЈРЎРљРђ);
+    // Первый запуск с задержкой (дожидаемся рендера)
+    setTimeout(run, CONFIG.ЗАДЕРЖКА_ПЕРВОГО_ЗАПУСКА);
 
-    // РќР°Р±Р»СЋРґР°РµРј Р·Р° РёР·РјРµРЅРµРЅРёСЏРјРё DOM (SPA-РЅР°РІРёРіР°С†РёСЏ РђРІРёС‚Рѕ)
+    // Наблюдаем за изменениями DOM (SPA-навигация Авито)
     const observer = new MutationObserver(() => {
         // Debounce
         clearTimeout(observer._timeout);
-        observer._timeout = setTimeout(run, CONFIG.Р—РђР”Р•Р Р–РљРђ_РџР•Р Р•РЎР§РЃРўРђ);
+        observer._timeout = setTimeout(run, CONFIG.ЗАДЕРЖКА_ПЕРЕСЧЁТА);
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
