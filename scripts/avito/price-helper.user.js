@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Помощник актуализации цен
 // @namespace    http://tampermonkey.net/
-// @version      1.6
+// @version      1.5
 // @description  Анализирует первые N объявлений конкурентов, подсвечивает по цене и считает рекомендуемую цену с наценкой
 // @author       TroyDiFlex
 // @match        https://www.avito.ru/*
