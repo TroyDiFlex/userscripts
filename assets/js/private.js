@@ -1,12 +1,4 @@
 import { escapeHtml } from './common.js';
-
-// Регистрируем Service Worker для корректной установки приватных скриптов
-// (blob: URL не перехватываются Tampermonkey в Chrome MV3)
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/userscripts/sw.js').catch(err => {
-    console.warn('[private] SW не удалось зарегистрировать:', err);
-  });
-}
 import * as gh from './github-api.js';
 
 // ============================================================
@@ -221,7 +213,7 @@ async function renderStore() {
         ${(s.tags && s.tags.length) ? `<div class="tags">${s.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
         <div class="card-foot">
           <div class="install-stats">&nbsp;</div>
-          <button class="btn-install btn-install-private" data-file="${escapeHtml(s.file)}" data-name="${escapeHtml(s.name)}">⬇️ Установить</button>
+          <button class="btn-install btn-install-private" data-file="${escapeHtml(s.file)}" data-name="${escapeHtml(s.name)}">⬇️ Скачать</button>
         </div>
       </article>
     `;
@@ -253,39 +245,23 @@ async function renderStore() {
         },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const scriptText = await res.text();
+      const blob = await res.blob();
 
-      // Tampermonkey перехватывает только HTTPS URL, оканчивающийся на .user.js.
-      // blob: URL в Chrome MV3 не перехватываются расширениями.
-      // Используем Service Worker: сохраняем скрипт и открываем /install/<uuid>/name.user.js
-      const sw = await navigator.serviceWorker.ready;
-      const id = crypto.randomUUID();
-      const safeName = (scriptName || 'script').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.user.js';
+      // Просто скачиваем файл — потом перетащить в Tampermonkey или через меню «Установить из файла»
+      const fileName = filePath.split('/').pop() || 'script.user.js';
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 5000);
 
-      // Передаём контент в Service Worker
-      await new Promise((resolve, reject) => {
-        const channel = new MessageChannel();
-        channel.port1.onmessage = e => (e.data && e.data.ok ? resolve() : reject(new Error('SW не принял скрипт')));
-        sw.active.postMessage({ type: 'STORE_SCRIPT', id, content: scriptText }, [channel.port2]);
-        setTimeout(() => reject(new Error('SW не ответил (таймаут)')), 3000);
-      });
-
-      // Открываем URL — Tampermonkey видит .user.js и перехватывает установку
-      const installUrl = `/userscripts/install/${id}/${safeName}`;
-      const win = window.open(installUrl, '_blank');
-      if (!win) {
-        const a = document.createElement('a');
-        a.href = installUrl;
-        a.target = '_blank';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
-
-      if (btn) { btn.dataset.loading = ''; btn.textContent = '⬇️ Установить'; }
+      if (btn) { btn.dataset.loading = ''; btn.textContent = '⬇️ Скачать'; }
     } catch (e) {
-      alert('Не удалось установить скрипт: ' + e.message);
-      if (btn) { btn.dataset.loading = ''; btn.textContent = '⬇️ Установить'; }
+      alert('Не удалось скачать скрипт: ' + e.message);
+      if (btn) { btn.dataset.loading = ''; btn.textContent = '⬇️ Скачать'; }
     }
   }
 
