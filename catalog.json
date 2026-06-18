@@ -30,7 +30,9 @@
       "file": "scripts/avito/pro-tools.user.js",
       "icon": "📊",
       "color": "#6C63FF",
-      "images": [],
+      "images": [
+        "images/scripts/pro-tools-1781819787111-0.png"
+      ],
       "tags": [
         "авито",
         "продвижение",
