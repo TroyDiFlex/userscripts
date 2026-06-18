@@ -1,8 +1,8 @@
-// ==UserScript==
-// @name         Avito Pro Tools — Продвижение + Стоимость просмотра
+﻿// ==UserScript==
+// @name         Avito Pro Tools вЂ” РџСЂРѕРґРІРёР¶РµРЅРёРµ + РЎС‚РѕРёРјРѕСЃС‚СЊ РїСЂРѕСЃРјРѕС‚СЂР°
 // @namespace    http://tampermonkey.net/
-// @version      2.1
-// @description  Подсвечивает карточки без продвижения + считает стоимость просмотра
+// @version      2.2
+// @description  РџРѕРґСЃРІРµС‡РёРІР°РµС‚ РєР°СЂС‚РѕС‡РєРё Р±РµР· РїСЂРѕРґРІРёР¶РµРЅРёСЏ + СЃС‡РёС‚Р°РµС‚ СЃС‚РѕРёРјРѕСЃС‚СЊ РїСЂРѕСЃРјРѕС‚СЂР°
 // @author       TroyDiFlex
 // @match        https://www.avito.ru/*
 // @updateURL    https://cdn.jsdelivr.net/gh/troydiflex/userscripts@main/scripts/avito/pro-tools.user.js
@@ -23,7 +23,7 @@
             position: relative;
         }
         [role-marker="offer"].unpromoted-card::after {
-            content: 'Без продвижения';
+            content: 'Р‘РµР· РїСЂРѕРґРІРёР¶РµРЅРёСЏ';
             position: absolute;
             top: 0px;
             right: 8px;
@@ -75,15 +75,15 @@
     }
 
     function processAllCards() {
-        // Работаем только на нужной странице
+        // Р Р°Р±РѕС‚Р°РµРј С‚РѕР»СЊРєРѕ РЅР° РЅСѓР¶РЅРѕР№ СЃС‚СЂР°РЅРёС†Рµ
         if (!location.pathname.startsWith('/profile/pro/items')) return;
 
         document.querySelectorAll('[role-marker="offer"]').forEach(card => {
-            // --- Продвижение ---
+            // --- РџСЂРѕРґРІРёР¶РµРЅРёРµ ---
             const hasPromo = card.querySelector('[data-marker="service-icon/CPX_PROMO_V1"]');
             card.classList.toggle('unpromoted-card', !hasPromo);
 
-            // --- Стоимость просмотра ---
+            // --- РЎС‚РѕРёРјРѕСЃС‚СЊ РїСЂРѕСЃРјРѕС‚СЂР° ---
             if (card.querySelector('.cpv-badge')) return;
 
             const viewsEl = card.querySelector('[role-marker="views"] span');
@@ -97,15 +97,15 @@
             const cpv = spending / views;
             const badge = document.createElement('span');
             badge.className = cpv > MAX_COST_PER_VIEW ? 'cpv-badge bad' : 'cpv-badge good';
-            badge.title = `Расходы (${spending}) / Просмотры (${views}) = ${cpv.toFixed(2)} ₽`;
-            badge.textContent = `${cpv.toFixed(1)} ₽/пр.`;
+            badge.title = `Р Р°СЃС…РѕРґС‹ (${spending}) / РџСЂРѕСЃРјРѕС‚СЂС‹ (${views}) = ${cpv.toFixed(2)} в‚Ѕ`;
+            badge.textContent = `${cpv.toFixed(1)} в‚Ѕ/РїСЂ.`;
 
             spendingEl.parentNode.classList.add('cpv-parent');
             spendingEl.parentNode.appendChild(badge);
         });
     }
 
-    // Перехватываем SPA-навигации React
+    // РџРµСЂРµС…РІР°С‚С‹РІР°РµРј SPA-РЅР°РІРёРіР°С†РёРё React
     const origPushState = history.pushState;
     const origReplaceState = history.replaceState;
     history.pushState = function() {
@@ -118,7 +118,7 @@
     };
     window.addEventListener('popstate', () => setTimeout(processAllCards, 500));
 
-    // Основной цикл — страховка
+    // РћСЃРЅРѕРІРЅРѕР№ С†РёРєР» вЂ” СЃС‚СЂР°С…РѕРІРєР°
     setInterval(processAllCards, 2000);
     setTimeout(processAllCards, 500);
 })();

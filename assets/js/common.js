@@ -104,6 +104,7 @@ export function initStore({ visibility, mountEl, searchEl, filtersEl, emptyMsg =
     mountEl.innerHTML = list.map(cardHtml).join('');
     mountEl.querySelectorAll('.carousel').forEach(initCarousel);
     loadInstallStats(list);
+    loadVersions(list);
   }
 
   function cardHtml(s) {
@@ -117,7 +118,7 @@ export function initStore({ visibility, mountEl, searchEl, filtersEl, emptyMsg =
             <h3 class="card-title">${escapeHtml(s.name)}</h3>
             <div class="card-meta">
               <span>${escapeHtml(cat?.icon || '')} ${escapeHtml(cat?.name || s.category)}</span>
-              <span>v${escapeHtml(s.version)}</span>
+              <span data-version="${escapeHtml(s.file)}"></span>
               <span>${escapeHtml(s.updatedAt || '')}</span>
             </div>
           </div>
@@ -189,6 +190,49 @@ export function initStore({ visibility, mountEl, searchEl, filtersEl, emptyMsg =
         } catch { /* */ }
       }
     } catch { /* */ }
+  }
+
+  async function loadVersions(list) {
+    if (REPO.owner === 'GITHUB_USER') return;
+    for (const s of list) {
+      try {
+        let version = '';
+        if ((s.visibility || 'public') === 'public') {
+          const res = await fetch(`https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/${s.file}`, { cache: 'no-store' });
+          if (res.ok) {
+            const text = await res.text();
+            const m = text.match(/\/\/\s*@version\s+([^\r\n]+)/);
+            if (m) version = m[1].trim();
+          }
+        } else {
+          const token = localStorage.getItem('gh_pat') || '';
+          const repoRaw = localStorage.getItem('gh_private_repo') || '';
+          const [owner, name] = repoRaw.split('/');
+          if (token && owner && name) {
+            const url = `https://api.github.com/repos/${owner}/${name}/contents/${s.file}`;
+            const res = await fetch(url, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github.raw+json',
+                'X-GitHub-Api-Version': '2022-11-28',
+              },
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.content) {
+                const text = atob(data.content);
+                const m = text.match(/\/\/\s*@version\s+([^\r\n]+)/);
+                if (m) version = m[1].trim();
+              }
+            }
+          }
+        }
+        if (version) {
+          const el = mountEl.querySelector(`[data-version="${cssEscape(s.file)}"]`);
+          if (el) el.textContent = `v${version}`;
+        }
+      } catch { /* */ }
+    }
   }
 
   if (searchEl) {

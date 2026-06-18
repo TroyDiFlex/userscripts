@@ -232,7 +232,7 @@ function rowHtml(s) {
         <strong>${escapeHtml(s.name)}</strong>
       </td>
       <td>${escapeHtml(cat?.name || s.category)}</td>
-      <td>v${escapeHtml(s.version)}</td>
+      <td>—</td>
       <td><span class="badge ${isPrivate ? 'badge-private' : 'badge-public'}">${isPrivate ? '🔒 Приватный' : '🌐 Публичный'}</span></td>
       <td><div class="row-actions">
         <button class="icon-btn" data-edit="${escapeHtml(s.id)}" title="Редактировать">✏️</button>
@@ -297,10 +297,7 @@ function openScriptModal(id) {
           </div>
         </div>
         <div class="field-row">
-          <div class="field">
-            <label>Версия</label>
-            <input class="input" data-f="version" value="${escapeHtml(s.version)}" />
-          </div>
+
           <div class="field">
             <label>Иконка (эмодзи)</label>
             <input class="input" data-f="icon" value="${escapeHtml(s.icon)}" />

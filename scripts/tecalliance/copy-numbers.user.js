@@ -1,8 +1,8 @@
-// ==UserScript==
-// @name         TecAlliance — Скопировать номера
+﻿// ==UserScript==
+// @name         TecAlliance вЂ” РЎРєРѕРїРёСЂРѕРІР°С‚СЊ РЅРѕРјРµСЂР°
 // @namespace    https://www.tecalliance.cn/
-// @version      1.1
-// @description  Плавающая кнопка, собирающая все OE-номера и номера аналогов (Basic Info) на странице и копирующая их в буфер обмена
+// @version      1.2
+// @description  РџР»Р°РІР°СЋС‰Р°СЏ РєРЅРѕРїРєР°, СЃРѕР±РёСЂР°СЋС‰Р°СЏ РІСЃРµ OE-РЅРѕРјРµСЂР° Рё РЅРѕРјРµСЂР° Р°РЅР°Р»РѕРіРѕРІ (Basic Info) РЅР° СЃС‚СЂР°РЅРёС†Рµ Рё РєРѕРїРёСЂСѓСЋС‰Р°СЏ РёС… РІ Р±СѓС„РµСЂ РѕР±РјРµРЅР°
 // @author       TroyDiFlex
 // @match        https://www.tecalliance.cn/*/search/*
 // @match        https://*.tecalliance.cn/*/search/*
@@ -17,13 +17,13 @@
 (function () {
     'use strict';
 
-    // Не добавлять кнопку повторно при SPA-навигации
+    // РќРµ РґРѕР±Р°РІР»СЏС‚СЊ РєРЅРѕРїРєСѓ РїРѕРІС‚РѕСЂРЅРѕ РїСЂРё SPA-РЅР°РІРёРіР°С†РёРё
     if (document.getElementById('tec-copy-btn')) return;
 
-    /* ── Кнопка ── */
+    /* в”Ђв”Ђ РљРЅРѕРїРєР° в”Ђв”Ђ */
     var btn = document.createElement('button');
     btn.id = 'tec-copy-btn';
-    btn.textContent = '📋 Скопировать номера';
+    btn.textContent = 'рџ“‹ РЎРєРѕРїРёСЂРѕРІР°С‚СЊ РЅРѕРјРµСЂР°';
     btn.style.cssText = [
         'position:fixed',
         'bottom:24px',
@@ -52,7 +52,7 @@
         btn.style.boxShadow   = '0 4px 20px rgba(0,0,0,0.35)';
     };
 
-    /* ── Логика сбора номеров ── */
+    /* в”Ђв”Ђ Р›РѕРіРёРєР° СЃР±РѕСЂР° РЅРѕРјРµСЂРѕРІ в”Ђв”Ђ */
     btn.onclick = function () {
         var numbers = [];
         var seen    = {};
@@ -65,37 +65,37 @@
             }
         }
 
-        // 1. OE Numbers — ссылки внутри .oens с match_type=oe
+        // 1. OE Numbers вЂ” СЃСЃС‹Р»РєРё РІРЅСѓС‚СЂРё .oens СЃ match_type=oe
         var oeLinks = document.querySelectorAll('.oens a[href*="match_type=oe"]');
         oeLinks.forEach(function (a) { add(a.textContent); });
 
-        // Запасной вариант: любая ссылка с match_type=oe на странице
+        // Р—Р°РїР°СЃРЅРѕР№ РІР°СЂРёР°РЅС‚: Р»СЋР±Р°СЏ СЃСЃС‹Р»РєР° СЃ match_type=oe РЅР° СЃС‚СЂР°РЅРёС†Рµ
         if (oeLinks.length === 0) {
             document.querySelectorAll('a[href*="match_type=oe"]')
                     .forEach(function (a) { add(a.textContent); });
         }
 
-        // 2. Аналоги — артикулы в Basic Info (tr.m-basic-info)
+        // 2. РђРЅР°Р»РѕРіРё вЂ” Р°СЂС‚РёРєСѓР»С‹ РІ Basic Info (tr.m-basic-info)
         document.querySelectorAll('tr.m-basic-info .basic-info h2.article-number a')
                 .forEach(function (a) { add(a.textContent); });
 
-        // Запасной вариант: любой h2.article-number a на странице
+        // Р—Р°РїР°СЃРЅРѕР№ РІР°СЂРёР°РЅС‚: Р»СЋР±РѕР№ h2.article-number a РЅР° СЃС‚СЂР°РЅРёС†Рµ
         if (numbers.length === 0) {
             document.querySelectorAll('h2.article-number a')
                     .forEach(function (a) { add(a.textContent); });
         }
 
         if (numbers.length === 0) {
-            alert('❌ Номера не найдены!\nВозможно, страница ещё не загрузилась или сайт обновился.');
+            alert('вќЊ РќРѕРјРµСЂР° РЅРµ РЅР°Р№РґРµРЅС‹!\nР’РѕР·РјРѕР¶РЅРѕ, СЃС‚СЂР°РЅРёС†Р° РµС‰С‘ РЅРµ Р·Р°РіСЂСѓР·РёР»Р°СЃСЊ РёР»Рё СЃР°Р№С‚ РѕР±РЅРѕРІРёР»СЃСЏ.');
             return;
         }
 
         var text = numbers.join('\n');
 
-        /* ── Копирование ── */
+        /* в”Ђв”Ђ РљРѕРїРёСЂРѕРІР°РЅРёРµ в”Ђв”Ђ */
         function onSuccess(n) {
-            btn.textContent = '✅ ' + n + ' номеров!';
-            setTimeout(function () { btn.textContent = '📋 Скопировать номера'; }, 3000);
+            btn.textContent = 'вњ… ' + n + ' РЅРѕРјРµСЂРѕРІ!';
+            setTimeout(function () { btn.textContent = 'рџ“‹ РЎРєРѕРїРёСЂРѕРІР°С‚СЊ РЅРѕРјРµСЂР°'; }, 3000);
         }
 
         function fallbackCopy(t, n) {
@@ -109,12 +109,12 @@
                 document.execCommand('copy');
                 onSuccess(n);
             } catch (e) {
-                prompt('Не удалось скопировать автоматически. Скопируйте вручную (Ctrl+A → Ctrl+C):', t);
+                prompt('РќРµ СѓРґР°Р»РѕСЃСЊ СЃРєРѕРїРёСЂРѕРІР°С‚СЊ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё. РЎРєРѕРїРёСЂСѓР№С‚Рµ РІСЂСѓС‡РЅСѓСЋ (Ctrl+A в†’ Ctrl+C):', t);
             }
             document.body.removeChild(ta);
         }
 
-        // GM_setClipboard — самый надёжный способ в Tampermonkey
+        // GM_setClipboard вЂ” СЃР°РјС‹Р№ РЅР°РґС‘Р¶РЅС‹Р№ СЃРїРѕСЃРѕР± РІ Tampermonkey
         if (typeof GM_setClipboard !== 'undefined') {
             GM_setClipboard(text, 'text');
             onSuccess(numbers.length);
