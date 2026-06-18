@@ -207,7 +207,11 @@ async function renderStore() {
           <div class="carousel-track">
             ${imgs.map(src => `<img src="${escapeHtml(getPrivateImgUrl(src))}" alt="" loading="lazy">`).join('')}
           </div>
-          ${imgs.length > 1 ? `<div class="carousel-dots">${imgs.map((_, i) => `<button class="carousel-dot ${i === 0 ? 'active' : ''}" data-i="${i}" aria-label="Слайд ${i + 1}"></button>`).join('')}</div>` : ''}
+          ${imgs.length > 1 ? `
+            <button class="carousel-btn carousel-btn-prev" aria-label="Предыдущий слайд"><span>❮</span></button>
+            <button class="carousel-btn carousel-btn-next" aria-label="Следующий слайд"><span>❯</span></button>
+            <div class="carousel-dots">${imgs.map((_, i) => `<button class="carousel-dot ${i === 0 ? 'active' : ''}" data-i="${i}" aria-label="Слайд ${i + 1}"></button>`).join('')}</div>
+          ` : ''}
         </div>` : ''}
         <p class="card-desc">${escapeHtml(s.description)}</p>
         ${(s.tags && s.tags.length) ? `<div class="tags">${s.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
@@ -268,14 +272,28 @@ async function renderStore() {
   function initCarousel(el) {
     const track = el.querySelector('.carousel-track');
     const dots = el.querySelectorAll('.carousel-dot');
-    if (!dots.length) return;
+    const btnPrev = el.querySelector('.carousel-btn-prev');
+    const btnNext = el.querySelector('.carousel-btn-next');
+    if (!track) return;
+    const imgCount = track.querySelectorAll('img').length;
+    if (imgCount <= 1) return;
     let i = 0;
     function go(n) {
-      i = (n + dots.length) % dots.length;
+      i = (n + imgCount) % imgCount;
       track.style.transform = `translateX(-${i * 100}%)`;
-      dots.forEach((d, k) => d.classList.toggle('active', k === i));
+      if (dots.length) {
+        dots.forEach((d, k) => d.classList.toggle('active', k === i));
+      }
     }
-    dots.forEach(d => d.addEventListener('click', () => go(parseInt(d.dataset.i))));
+    if (dots.length) {
+      dots.forEach((d) => d.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); go(parseInt(d.dataset.i)); }));
+    }
+    if (btnPrev) {
+      btnPrev.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); go(i - 1); });
+    }
+    if (btnNext) {
+      btnNext.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); go(i + 1); });
+    }
     let sx = 0;
     el.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
     el.addEventListener('touchend', (e) => {
