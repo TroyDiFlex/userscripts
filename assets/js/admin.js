@@ -7,6 +7,25 @@ const toasts = document.getElementById('toasts');
 
 const CATALOG_PATH = 'catalog.json';
 
+// Надёжно загружает catalog.json: sha берётся через directory listing,
+// content — через getFile. Если файла нет — возвращает { sha: null, cat: defaultCat }.
+async function loadCatalogFile(usePrivate = false) {
+  const empty = { version: 1, scripts: [], categories: [] };
+  try {
+    // Сначала получаем sha через listing директории (надёжно, без загрузки контента)
+    const sha = await gh.getSha(CATALOG_PATH, usePrivate);
+    if (!sha) return { sha: null, cat: { ...empty } };
+
+    // Теперь загружаем содержимое
+    const file = await gh.getFile(CATALOG_PATH, usePrivate);
+    if (!file || !file.content) return { sha, cat: { ...empty } };
+    const cat = JSON.parse(file.content);
+    return { sha, cat };
+  } catch {
+    return { sha: null, cat: { ...empty } };
+  }
+}
+
 let state = {
   tab: 'scripts',
   catalog: null,         // объединённый каталог (public + private)
@@ -472,23 +491,21 @@ function openScriptModal(id) {
       const scriptForCatalog = { ...s };
       delete scriptForCatalog.visibility; // visibility не хранится в catalog.json
 
-      const catFile = await gh.getFile(CATALOG_PATH, isPrivate);
-      const cat = (catFile && catFile.content) ? JSON.parse(catFile.content) : { version: 1, scripts: [], categories: [] };
+      const { sha: catSha, cat } = await loadCatalogFile(isPrivate);
       const idx = cat.scripts.findIndex((x) => x.id === s.id);
       if (idx >= 0) cat.scripts[idx] = scriptForCatalog; else cat.scripts.push(scriptForCatalog);
       // Убеждаемся что категории синхронизированы
       const allCats = state.catalog.categories || [];
       cat.categories = allCats;
-      await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `${editing ? 'update' : 'add'} script: ${s.id}`, catFile?.sha, isPrivate);
+      await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `${editing ? 'update' : 'add'} script: ${s.id}`, catSha, isPrivate);
 
       // 5) Если менялась видимость — удалить из старого catalog.json
       if (visibilityChanged) {
         const oldPrivate = wasPrivate;
-        const oldCatFile = await gh.getFile(CATALOG_PATH, oldPrivate);
-        if (oldCatFile) {
-          const oldCat = (oldCatFile.content) ? JSON.parse(oldCatFile.content) : { version: 1, scripts: [], categories: [] };
+        const { sha: oldCatSha, cat: oldCat } = await loadCatalogFile(oldPrivate);
+        if (oldCatSha) {
           oldCat.scripts = (oldCat.scripts || []).filter((x) => x.id !== s.id);
-          await gh.putFileText(CATALOG_PATH, JSON.stringify(oldCat, null, 2), `remove script (moved): ${s.id}`, oldCatFile.sha, oldPrivate);
+          await gh.putFileText(CATALOG_PATH, JSON.stringify(oldCat, null, 2), `remove script (moved): ${s.id}`, oldCatSha, oldPrivate);
         }
       }
 
@@ -528,10 +545,9 @@ async function deleteScript(id) {
       try { const sha = await gh.getSha(p, isPrivate); if (sha) await gh.deleteFile(p, sha, `delete image: ${p}`, isPrivate); } catch { /* */ }
     }
     // Обновить catalog.json
-    const catFile = await gh.getFile(CATALOG_PATH, isPrivate);
-    const cat = catFile ? JSON.parse(catFile.content) : state.catalog;
-    cat.scripts = cat.scripts.filter((x) => x.id !== id);
-    await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `delete script: ${id}`, catFile?.sha, isPrivate);
+    const { sha: catSha, cat } = await loadCatalogFile(isPrivate);
+    cat.scripts = (cat.scripts || []).filter((x) => x.id !== id);
+    await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `delete script: ${id}`, catSha, isPrivate);
     await loadAllCatalogs();
     toast('Удалено');
     renderTab();
@@ -607,13 +623,12 @@ function openCategoryModal(id) {
       // Сохраняем категорию в ОБА каталога
       for (const usePrivate of [false, true]) {
         if (usePrivate && !gh.hasPrivateRepo()) continue;
-        const catFile = await gh.getFile(CATALOG_PATH, usePrivate);
-        if (!catFile && usePrivate) continue; // приватный каталог ещё не создан — пропускаем
-        const cat = (catFile && catFile.content) ? JSON.parse(catFile.content) : { version: 1, scripts: [], categories: [] };
+        const { sha: catSha, cat } = await loadCatalogFile(usePrivate);
+        if (!catSha && usePrivate) continue; // приватный каталог ещё не создан — пропускаем
         cat.categories = cat.categories || [];
         const idx = cat.categories.findIndex((x) => x.id === c.id);
         if (idx >= 0) cat.categories[idx] = c; else cat.categories.push(c);
-        await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `${editing ? 'update' : 'add'} category: ${c.id}`, catFile?.sha, usePrivate);
+        await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `${editing ? 'update' : 'add'} category: ${c.id}`, catSha, usePrivate);
       }
       await loadAllCatalogs();
       toast('Сохранено');
@@ -628,11 +643,10 @@ async function deleteCategory(id) {
   try {
     for (const usePrivate of [false, true]) {
       if (usePrivate && !gh.hasPrivateRepo()) continue;
-      const catFile = await gh.getFile(CATALOG_PATH, usePrivate);
-      if (!catFile) continue;
-      const cat = JSON.parse(catFile.content);
+      const { sha: catSha, cat } = await loadCatalogFile(usePrivate);
+      if (!catSha) continue;
       cat.categories = (cat.categories || []).filter((c) => c.id !== id);
-      await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `delete category: ${id}`, catFile.sha, usePrivate);
+      await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `delete category: ${id}`, catSha, usePrivate);
     }
     await loadAllCatalogs();
     toast('Удалено');
