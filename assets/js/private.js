@@ -2,7 +2,7 @@ import { initStore } from './common.js';
 
 // SHA-256 от пароля. По умолчанию — хеш от строки "changeme".
 // Меняется в админке (Настройки → Пароль приватного магазина).
-const PRIVATE_PASSWORD_HASH = 'c0067d4af4e87f00dbac63b6156828237059172d0a16c4f6c8bdc7de7f3ab7d2';
+const PRIVATE_PASSWORD_HASH = '722845e06c6140f0708fbf13b897fe403f0f1463b40f2baf9bb05a0de783ebe9';
 
 const overlay = document.getElementById('lock');
 const form = document.getElementById('lock-form');
