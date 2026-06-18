@@ -50,7 +50,9 @@
       "file": "scripts/avito/wordstat.user.js",
       "icon": "📈",
       "color": "#00B894",
-      "images": [],
+      "images": [
+        "images/scripts/wordstat-1781819970187-0.png"
+      ],
       "tags": [
         "авито",
         "вордстат",
