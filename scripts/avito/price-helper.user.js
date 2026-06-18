@@ -1,10 +1,12 @@
 // ==UserScript==
 // @name         Помощник актуализации цен
 // @namespace    http://tampermonkey.net/
-// @version      1.4
-// @description
-// @author
+// @version      1.5
+// @description  Анализирует первые N объявлений конкурентов, подсвечивает по цене и считает рекомендуемую цену с наценкой
+// @author       TroyDiFlex
 // @match        https://www.avito.ru/*
+// @updateURL    https://troydiflex.github.io/userscripts/scripts/avito/price-helper.user.js
+// @downloadURL  https://troydiflex.github.io/userscripts/scripts/avito/price-helper.user.js
 // @grant        GM_addStyle
 // @run-at       document-idle
 // ==/UserScript==
