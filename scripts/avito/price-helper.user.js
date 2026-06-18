@@ -2,7 +2,7 @@
 // @name         Помощник актуализации цен
 // @namespace    http://tampermonkey.net/
 // @version      1.7
-// @description  Анализирует первые N объявлений конкурентов, подсвечивает по цене и считает рекомендуемую цену с наценкой
+// @description  Анализирует первые 8 объявлений конкурентов, подсвечивает лучшие цены, и считает рекомендуемую цену.
 // @author       TroyDiFlex
 // @match        https://www.avito.ru/*
 // @updateURL    https://cdn.jsdelivr.net/gh/troydiflex/userscripts@main/scripts/avito/price-helper.user.js
