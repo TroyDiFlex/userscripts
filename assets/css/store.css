@@ -43,7 +43,7 @@
 .empty { grid-column: 1 / -1; text-align: center; padding: 80px 20px; color: var(--text-muted); }
 .empty-icon { font-size: 48px; opacity: 0.4; margin-bottom: 12px; }
 
-.card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); padding: 24px; display: flex; flex-direction: column; gap: 16px; transition: transform var(--t), border-color var(--t), box-shadow var(--t); position: relative; overflow: hidden; }
+.card { --accent: var(--script-color, #6C63FF); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); padding: 24px; display: flex; flex-direction: column; gap: 16px; transition: transform var(--t), border-color var(--t), box-shadow var(--t); position: relative; overflow: hidden; }
 .card::before { content: ''; position: absolute; inset: 0; background: radial-gradient(400px 200px at 0% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 60%); opacity: 0; transition: opacity var(--t); pointer-events: none; }
 .card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: var(--shadow), 0 0 0 1px var(--accent); }
 .card:hover::before { opacity: 1; }
