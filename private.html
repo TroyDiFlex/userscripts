@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Приватный магазин — Script Store</title>
+  <meta name="robots" content="noindex,nofollow" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/tokens.css" />
+  <link rel="stylesheet" href="assets/css/store.css" />
+</head>
+<body>
+  <div id="lock" class="lock-overlay">
+    <div class="lock-card">
+      <div class="lock-icon">🔒</div>
+      <h2>Приватный раздел</h2>
+      <p>Введите пароль для доступа к закрытым скриптам.</p>
+      <form id="lock-form" class="lock-form">
+        <input id="lock-input" type="password" placeholder="Пароль" autocomplete="current-password" required />
+        <div id="lock-error" class="lock-error" role="alert"></div>
+        <button type="submit">Войти</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="store" class="hidden">
+    <header class="header">
+      <div class="header-inner">
+        <a class="logo" href="./">
+          <span class="logo-mark">🔒</span>
+          <span>Script Store · Приватные</span>
+        </a>
+        <div class="search">
+          <label for="search" class="sr-only">Поиск скриптов</label>
+          <input id="search" type="search" placeholder="Найти скрипт…" autocomplete="off" />
+        </div>
+        <a class="header-link" href="index.html">← К публичным</a>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="hero">
+        <h1>Закрытые скрипты</h1>
+        <p>Раздел доступен по паролю. Не делитесь скриптами с теми, кому их не положено видеть.</p>
+      </section>
+
+      <nav id="filters" class="filters" aria-label="Категории"></nav>
+      <section id="grid" class="grid" aria-live="polite"></section>
+    </main>
+
+    <footer class="footer">
+      <p><a href="index.html">← Вернуться в публичный магазин</a></p>
+    </footer>
+  </div>
+
+  <script type="module" src="assets/js/private.js"></script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Магазин скриптов Tampermonkey — авто-установка в один клик</title>
+  <meta name="description" content="Каталог пользовательских скриптов Tampermonkey: помощники для Avito, TecAlliance и других сервисов. Установка одной кнопкой." />
+  <link rel="canonical" href="./" />
+  <meta property="og:title" content="Магазин скриптов Tampermonkey" />
+  <meta property="og:description" content="Каталог пользовательских скриптов с установкой в один клик." />
+  <meta property="og:type" content="website" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/tokens.css" />
+  <link rel="stylesheet" href="assets/css/store.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <a class="logo" href="./">
+        <span class="logo-mark">⚡</span>
+        <span>Script Store</span>
+      </a>
+      <div class="search">
+        <label for="search" class="sr-only">Поиск скриптов</label>
+        <input id="search" type="search" placeholder="Найти скрипт…" autocomplete="off" />
+      </div>
+      <a class="header-link" href="private.html">🔒 Приватные</a>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="hero">
+      <h1>Скрипты Tampermonkey, готовые к работе</h1>
+      <p>Установите одной кнопкой. Никаких настроек — открыли карточку, нажали «Установить», подтвердили в Tampermonkey.</p>
+    </section>
+
+    <details class="howto">
+      <summary>📦 Как начать: установка Tampermonkey</summary>
+      <div class="howto-body">
+        <ol>
+          <li>Установите расширение Tampermonkey в свой браузер.</li>
+          <li>Откройте карточку скрипта ниже и нажмите <code>⬇️ Установить</code>.</li>
+          <li>Tampermonkey откроет окно подтверждения — нажмите <strong>Install</strong>.</li>
+          <li>Готово — скрипт работает на нужном сайте.</li>
+        </ol>
+        <div class="howto-buttons">
+          <a class="btn-link" href="https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo" target="_blank" rel="noopener">Tampermonkey для Chrome</a>
+          <a class="btn-link" href="https://addons.mozilla.org/firefox/addon/tampermonkey/" target="_blank" rel="noopener">Tampermonkey для Firefox</a>
+          <a class="btn-link" href="https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpaadaobahmlepeloendndfphd" target="_blank" rel="noopener">Tampermonkey для Edge</a>
+        </div>
+      </div>
+    </details>
+
+    <nav id="filters" class="filters" aria-label="Категории"></nav>
+    <section id="grid" class="grid" aria-live="polite"></section>
+  </main>
+
+  <footer class="footer">
+    <p>Публичный каталог скриптов · <a href="private.html">Приватный раздел</a> · <a href="admin.html">Админка</a></p>
+  </footer>
+
+  <script type="module" src="assets/js/store.js"></script>
+</body>
+</html>

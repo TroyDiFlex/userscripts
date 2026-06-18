@@ -1,0 +1,165 @@
+// ============================================================
+// НАСТРОЙКА — поменяйте на свой репозиторий после деплоя
+// ============================================================
+// owner — ваш логин на GitHub (например, 'ivanov')
+// name  — название репозитория (например, 'scripts')
+// После замены: commit -> GitHub Pages пересоберётся за ~1 минуту.
+export const REPO = { owner: 'GITHUB_USER', name: 'REPO_NAME' };
+// ============================================================
+
+export function jsdelivrUrl(filePath) {
+  return `https://cdn.jsdelivr.net/gh/${REPO.owner}/${REPO.name}@main/${filePath}`;
+}
+
+export async function loadCatalog() {
+  const res = await fetch('catalog.json?t=' + Date.now(), { cache: 'no-store' });
+  if (!res.ok) throw new Error('Не удалось загрузить catalog.json');
+  return await res.json();
+}
+
+export function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+function cssEscape(s) {
+  return String(s).replace(/["\\]/g, '\\$&');
+}
+
+export function initStore({ visibility, mountEl, searchEl, filtersEl, emptyMsg = 'Скриптов пока нет' }) {
+  let catalog = null;
+  let activeCategory = 'all';
+  let query = '';
+
+  async function start() {
+    try {
+      catalog = await loadCatalog();
+    } catch (e) {
+      mountEl.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div>Не удалось загрузить каталог: ${escapeHtml(e.message)}</div></div>`;
+      return;
+    }
+    renderFilters();
+    render();
+  }
+
+  function visibleScripts() {
+    const list = (catalog?.scripts || []).filter((s) => s.visibility === visibility);
+    return list.filter((s) => {
+      if (activeCategory !== 'all' && s.category !== activeCategory) return false;
+      if (query) {
+        const q = query.toLowerCase();
+        const hay = (s.name + ' ' + s.description + ' ' + (s.tags || []).join(' ')).toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }
+
+  function renderFilters() {
+    if (!filtersEl) return;
+    const cats = (catalog?.categories || []);
+    const visibleCats = cats.filter((c) =>
+      (catalog?.scripts || []).some((s) => s.visibility === visibility && s.category === c.id)
+    );
+    filtersEl.innerHTML =
+      `<button class="chip ${activeCategory === 'all' ? 'active' : ''}" data-cat="all">Все</button>` +
+      visibleCats.map((c) =>
+        `<button class="chip ${activeCategory === c.id ? 'active' : ''}" data-cat="${escapeHtml(c.id)}"><span>${escapeHtml(c.icon)}</span>${escapeHtml(c.name)}</button>`
+      ).join('');
+    filtersEl.querySelectorAll('.chip').forEach((b) => {
+      b.addEventListener('click', () => {
+        activeCategory = b.dataset.cat;
+        renderFilters();
+        render();
+      });
+    });
+  }
+
+  function render() {
+    const list = visibleScripts();
+    if (!list.length) {
+      mountEl.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div><div>${escapeHtml(emptyMsg)}</div></div>`;
+      return;
+    }
+    mountEl.innerHTML = list.map(cardHtml).join('');
+    mountEl.querySelectorAll('.carousel').forEach(initCarousel);
+    loadInstallStats(list);
+  }
+
+  function cardHtml(s) {
+    const cat = (catalog.categories || []).find((c) => c.id === s.category);
+    const imgs = (s.images || []).filter(Boolean);
+    return `
+      <article class="card" style="--script-color: ${escapeHtml(s.color || '#6C63FF')}">
+        <header class="card-head">
+          <div class="card-icon" aria-hidden="true">${escapeHtml(s.icon || '📜')}</div>
+          <div>
+            <h3 class="card-title">${escapeHtml(s.name)}</h3>
+            <div class="card-meta">
+              <span>${escapeHtml(cat?.icon || '')} ${escapeHtml(cat?.name || s.category)}</span>
+              <span>v${escapeHtml(s.version)}</span>
+              <span>${escapeHtml(s.updatedAt || '')}</span>
+            </div>
+          </div>
+        </header>
+        ${imgs.length ? `
+        <div class="carousel">
+          <div class="carousel-track">
+            ${imgs.map((src) => `<img src="${escapeHtml(src)}" alt="" loading="lazy">`).join('')}
+          </div>
+          ${imgs.length > 1 ? `<div class="carousel-dots">${imgs.map((_, i) => `<button class="carousel-dot ${i === 0 ? 'active' : ''}" data-i="${i}" aria-label="Слайд ${i + 1}"></button>`).join('')}</div>` : ''}
+        </div>` : ''}
+        <p class="card-desc">${escapeHtml(s.description)}</p>
+        ${(s.tags && s.tags.length) ? `<div class="tags">${s.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+        <div class="card-foot">
+          <div class="install-stats" data-stats="${escapeHtml(s.file)}">&nbsp;</div>
+          <a class="btn-install" target="_blank" rel="noopener" href="${escapeHtml(jsdelivrUrl(s.file))}">⬇️ Установить</a>
+        </div>
+      </article>
+    `;
+  }
+
+  function initCarousel(el) {
+    const track = el.querySelector('.carousel-track');
+    const dots = el.querySelectorAll('.carousel-dot');
+    if (!dots.length) return;
+    let i = 0;
+    function go(n) {
+      i = (n + dots.length) % dots.length;
+      track.style.transform = `translateX(-${i * 100}%)`;
+      dots.forEach((d, k) => d.classList.toggle('active', k === i));
+    }
+    dots.forEach((d) => d.addEventListener('click', () => go(parseInt(d.dataset.i))));
+    let sx = 0;
+    el.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
+    el.addEventListener('touchend', (e) => {
+      const dx = e.changedTouches[0].clientX - sx;
+      if (Math.abs(dx) > 40) go(i + (dx < 0 ? 1 : -1));
+    });
+  }
+
+  async function loadInstallStats(list) {
+    // Не пытаемся грузить статистику, пока REPO не настроен
+    if (REPO.owner === 'GITHUB_USER') return;
+    try {
+      const { getInstallStats } = await import('./jsdelivr.js');
+      for (const s of list) {
+        try {
+          const stats = await getInstallStats(s.file);
+          const el = mountEl.querySelector(`[data-stats="${cssEscape(s.file)}"]`);
+          if (el && stats.month > 0) el.textContent = `↓ ${stats.month} за месяц`;
+        } catch { /* */ }
+      }
+    } catch { /* */ }
+  }
+
+  if (searchEl) {
+    searchEl.addEventListener('input', () => {
+      query = searchEl.value.trim();
+      render();
+    });
+  }
+
+  start();
+}
