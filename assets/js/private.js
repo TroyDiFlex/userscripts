@@ -1,4 +1,12 @@
 import { escapeHtml } from './common.js';
+
+// Регистрируем Service Worker для корректной установки приватных скриптов
+// (blob: URL не перехватываются Tampermonkey в Chrome MV3)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/userscripts/sw.js').catch(err => {
+    console.warn('[private] SW не удалось зарегистрировать:', err);
+  });
+}
 import * as gh from './github-api.js';
 
 // ============================================================
@@ -245,28 +253,38 @@ async function renderStore() {
         },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      // Tampermonkey перехватывает установку скрипта при открытии blob: URL
-      // с MIME-типом application/x-userscript. text/javascript — браузер просто показывает текст.
-      const scriptText = await blob.text();
-      const objectUrl = URL.createObjectURL(new Blob([scriptText], { type: 'application/x-userscript' }));
+      const scriptText = await res.text();
 
-      const win = window.open(objectUrl, '_blank');
+      // Tampermonkey перехватывает только HTTPS URL, оканчивающийся на .user.js.
+      // blob: URL в Chrome MV3 не перехватываются расширениями.
+      // Используем Service Worker: сохраняем скрипт и открываем /install/<uuid>/name.user.js
+      const sw = await navigator.serviceWorker.ready;
+      const id = crypto.randomUUID();
+      const safeName = (scriptName || 'script').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.user.js';
+
+      // Передаём контент в Service Worker
+      await new Promise((resolve, reject) => {
+        const channel = new MessageChannel();
+        channel.port1.onmessage = e => (e.data && e.data.ok ? resolve() : reject(new Error('SW не принял скрипт')));
+        sw.active.postMessage({ type: 'STORE_SCRIPT', id, content: scriptText }, [channel.port2]);
+        setTimeout(() => reject(new Error('SW не ответил (таймаут)')), 3000);
+      });
+
+      // Открываем URL — Tampermonkey видит .user.js и перехватывает установку
+      const installUrl = `/userscripts/install/${id}/${safeName}`;
+      const win = window.open(installUrl, '_blank');
       if (!win) {
-        // Если всплывающие окна заблокированы — fallback: ссылка без download
         const a = document.createElement('a');
-        a.href = objectUrl;
+        a.href = installUrl;
         a.target = '_blank';
-        // НЕ устанавливаем a.download — иначе браузер скачает, а не откроет
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
       }
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
 
       if (btn) { btn.dataset.loading = ''; btn.textContent = '⬇️ Установить'; }
     } catch (e) {
-      alert('Не удалось загрузить скрипт: ' + e.message);
+      alert('Не удалось установить скрипт: ' + e.message);
       if (btn) { btn.dataset.loading = ''; btn.textContent = '⬇️ Установить'; }
     }
   }
