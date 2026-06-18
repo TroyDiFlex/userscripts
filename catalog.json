@@ -44,7 +44,7 @@
     },
     {
       "id": "wordstat",
-      "name": "Avito Wordstat Автопарсер",
+      "name": "Avito Автопарсер статистики запросов",
       "description": "Автоматически перебирает артикулы и собирает статистику спроса с Авито Wordstat.",
       "category": "avito",
       "version": "1.5",
