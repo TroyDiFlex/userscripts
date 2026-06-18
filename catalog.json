@@ -25,7 +25,7 @@
     {
       "id": "pro-tools",
       "name": "Avito Pro Tools",
-      "description": "Подсвечивает карточки без продвижения и показывает стоимость просмотра.",
+      "description": "Подсвечивает в личном кабинете карточки без продвижения и показывает стоимость просмотра.",
       "category": "avito",
       "version": "2.0",
       "file": "scripts/avito/pro-tools.user.js",
