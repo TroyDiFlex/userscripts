@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Avito Wordstat — Автопарсер
 // @namespace    https://avito.ru/
-// @version      1.9
+// @version      2.0
 // @description  Автоматически перебирает артикулы и собирает статистику спроса с Авито Wordstat
 // @author       TroyDiFlex
 // @match        https://www.avito.ru/analytics/wordstat*
@@ -47,7 +47,7 @@
         input.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
-    // ─── ЖДЁМ ПОЯВЛЕНИЯ ЭЛЕМЕНТА ───
+    // ─── ЖДЁМ ПОЯВЛЕНИЯ ЭЛЕМЕНТА (один селектор) ───
     async function waitForSelector(selector, timeout = 15000) {
         const deadline = Date.now() + timeout;
         while (Date.now() < deadline) {
@@ -58,25 +58,68 @@
         return null;
     }
 
+    // ─── ЖДЁМ ПЕРВОГО СОВПАДЕНИЯ ИЗ НАБОРА СЕЛЕКТОРОВ ───
+    async function waitForAny(selectors, timeout = 15000) {
+        if (typeof selectors === 'string') selectors = [selectors];
+        const deadline = Date.now() + timeout;
+        while (Date.now() < deadline) {
+            for (const sel of selectors) {
+                try {
+                    const el = document.querySelector(sel);
+                    if (el) {
+                        console.log('[Wordstat Parser] Найдено по селектору:', sel);
+                        return el;
+                    }
+                } catch (_) { /* невалидный css-селектор — пропускаем */ }
+            }
+            await sleep(200);
+        }
+        console.warn('[Wordstat Parser] Ни один из селекторов не сработал:', selectors);
+        return null;
+    }
+
     // ─── ОЧИСТКА ПРЕДЫДУЩИХ ЗАПРОСОВ (ЧИПОВ) ───
     async function clearPreviousQueries() {
-        // Ищем все крестики у добавленных запросов
-        let closeBtns = document.querySelectorAll('[data-marker="close-button"]');
-        for (const btn of closeBtns) {
-            btn.click();
-            await sleep(150);
+        // Возможные маркеры крестиков удаления чипа
+        const closeSelectors = [
+            '[data-marker="close-button"]',
+            '[data-marker*="close"]',
+            'button[aria-label*="удал"]',
+            'button[aria-label*="Удал"]',
+            'button[aria-label*="закрыть"]',
+            'button[aria-label*="Закрыть"]',
+        ];
+        // Возможные маркеры самих чипов
+        const chipSelectors = [
+            '[data-marker^="query/"]',
+            '[data-marker="query/0"]',
+            '[data-marker*="chip"]',
+        ];
+
+        // Кликаем все крестики, которые найдём
+        for (const sel of closeSelectors) {
+            const btns = document.querySelectorAll(sel);
+            for (const btn of btns) {
+                btn.click();
+                await sleep(150);
+            }
         }
 
-        // Ждем, пока старые чипы исчезнут (макс 3 сек)
+        // Ждём, пока чипы исчезнут (макс. 3 сек)
         const deadline = Date.now() + 3000;
         while (Date.now() < deadline) {
-            const chips = document.querySelectorAll('[data-marker^="query/"]');
-            if (chips.length === 0) break; // Ура, старые данные исчезли
+            let hasChips = false;
+            for (const sel of chipSelectors) {
+                try {
+                    if (document.querySelectorAll(sel).length > 0) { hasChips = true; break; }
+                } catch (_) {}
+            }
+            if (!hasChips) break;
 
-            // Если крестики еще остались, нажмем еще раз (защита от глюков Авито)
-            closeBtns = document.querySelectorAll('[data-marker="close-button"]');
-            for (const btn of closeBtns) btn.click();
-
+            // Ещё раз кликаем крестики
+            for (const sel of closeSelectors) {
+                try { document.querySelectorAll(sel).forEach(b => b.click()); } catch (_) {}
+            }
             await sleep(100);
         }
     }
@@ -87,51 +130,55 @@
         let lastValue = null;
         let stableSince = Date.now();
 
-        // Вспомогательная функция для проверки загрузочного стейта (полупрозрачность)
         const isFaded = (el) => {
             let current = el;
             while (current && current !== document.body) {
                 const style = window.getComputedStyle(current);
-                if (parseFloat(style.opacity) < 0.95 || (style.filter && style.filter !== 'none')) {
-                    return true;
-                }
+                if (parseFloat(style.opacity) < 0.95 || (style.filter && style.filter !== 'none')) return true;
                 if (typeof current.className === 'string') {
                     const cls = current.className.toLowerCase();
-                    if (cls.includes('skeleton') || cls.includes('loading') || cls.includes('spinner')) {
-                        return true;
-                    }
+                    if (cls.includes('skeleton') || cls.includes('loading') || cls.includes('spinner')) return true;
                 }
                 current = current.parentElement;
             }
             return false;
         };
 
+        // Возможные селекторы чипа с нашим запросом
+        const chipSelectors = [
+            '[data-marker="query/0"]',
+            '[data-marker^="query/"]',
+            '[data-marker*="chip"]',
+        ];
+
         while (Date.now() < deadline) {
             let currentValue = null;
 
-            // 1. Проверяем, что чип с нужным запросом уже появился
-            const queryChip = document.querySelector('[data-marker="query/0"]');
-            const chipText = queryChip ? queryChip.textContent.trim() : '';
-            // Если чип еще не обновился на наш запрос — ждём
-            if (!queryChip || chipText.toLowerCase() !== query.toLowerCase()) {
+            // 1. Проверяем, что чип с нашим запросом уже на странице
+            let chipText = '';
+            for (const sel of chipSelectors) {
+                try {
+                    const chip = document.querySelector(sel);
+                    if (chip) { chipText = chip.textContent.trim(); break; }
+                } catch (_) {}
+            }
+
+            if (!chipText || chipText.toLowerCase() !== query.toLowerCase()) {
                 lastValue = null;
                 stableSince = Date.now();
                 await sleep(200);
                 continue;
             }
 
-            // 2. Ищем элементы с текстом "Всего запросов"
-            const allEls = document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, span, strong, b');
+            // 2. Ищем элемент «Всего запросов»
+            const allEls = document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, span, strong, b, div');
             for (const el of allEls) {
+                // Берём только прямой текст без дочерних узлов, чтобы не сканировать всю страницу
                 const txt = el.textContent.trim();
-                // Проверяем, начинается ли текст с "Всего запросов"
                 if (txt.startsWith('Всего запросов') && /\d/.test(txt)) {
-                    // 3. Убеждаемся, что элемент НЕ перекрыт фильтром/opacity (состояние загрузки Авито)
                     if (!isFaded(el)) {
-                        // Извлекаем цифры, включая возможные пробелы: "Всего запросов: 4 640"
                         const match = txt.match(/Всего запросов[^\d]*([\d\s\u00a0]+)/i);
                         if (match && match[1]) {
-                            // Удаляем все нецифровые символы
                             const cleanNum = match[1].replace(/[^\d]/g, '');
                             if (cleanNum) {
                                 currentValue = parseInt(cleanNum, 10);
@@ -144,22 +191,19 @@
 
             if (currentValue !== null) {
                 if (currentValue !== lastValue) {
-                    // Значение появилось или изменилось — сбрасываем таймер
                     lastValue = currentValue;
                     stableSince = Date.now();
                 } else if (Date.now() - stableSince >= 400) {
-                    // Значение держится неизменным уже 0.4 секунды — значит оно финальное
                     return currentValue;
                 }
             } else {
-                // Если значения вообще нет (крутится лоадер или полупрозрачно), сбрасываем таймер
                 lastValue = null;
                 stableSince = Date.now();
             }
 
             await sleep(200);
         }
-        return lastValue; // На крайний случай возвращаем то, что успели увидеть
+        return lastValue;
     }
 
     // ─── ПРОВЕРКА КАПЧИ ───
@@ -183,57 +227,99 @@
 
     // ─── ОБРАБОТКА ОДНОГО АРТИКУЛА ───
     async function processOne(article, query) {
-        // Очищаем предыдущие чипы, если есть
+        // Очищаем предыдущие чипы
         await clearPreviousQueries();
 
         statusEl.textContent = `🔍 Ввожу: ${query}`;
 
-        // Находим поле ввода
-        const input = await waitForSelector('[data-marker="query-suggest/search-input"]', 10000);
-        if (!input) throw new Error('Поле ввода не найдено');
+        // Ищем поле ввода по нескольким известным и резервным селекторам
+        const inputSelectors = [
+            '[data-marker="query-suggest/search-input"]',
+            '[data-marker*="search-input"]',
+            '[data-marker*="query-suggest"] input',
+            '[data-marker*="wordstat"] input',
+            'input[placeholder*="запрос"]',
+            'input[placeholder*="Запрос"]',
+            'input[placeholder*="Введите"]',
+            'input[type="text"]:not([readonly]):not([disabled])',
+        ];
 
-        // Очищаем поле (через крестик в инпуте, если он есть)
-        const clearBtn = document.querySelector('[data-marker="query-suggest/clearButton"]');
+        const input = await waitForAny(inputSelectors, 12000);
+        if (!input) {
+            console.error('[Wordstat Parser] Поле ввода не найдено. Проверьте селекторы.');
+            throw new Error('Поле ввода не найдено — возможно, Авито обновил интерфейс');
+        }
+
+        // Очищаем поле через крестик (если есть)
+        const clearBtn = document.querySelector(
+            '[data-marker="query-suggest/clearButton"], [data-marker*="clearButton"], [data-marker*="clear"]'
+        );
         if (clearBtn && clearBtn.offsetParent !== null) {
             clearBtn.click();
             await randomDelay(0.2, 0.4);
         }
 
-        // Кликаем, вводим текст
+        // Кликаем и вводим значение
         input.focus();
         input.click();
         await randomDelay(0.1, 0.3);
         setNativeInputValue(input, query);
 
-        // Рандомная задержка (имитация печати/раздумий)
+        // Имитация раздумий (защита от бана)
         await randomDelay(0.4, 1.9);
 
-        // Закрываем выпадающую подсказку (Escape)
+        // Закрываем выпадающий список (Escape)
         input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
         await randomDelay(0.2, 0.5);
 
-        // Жмём «Смотреть аналитику»
+        // Ищем и нажимаем кнопку «Смотреть аналитику»
         statusEl.textContent = `⏳ Жду кнопку...`;
         let clicked = false;
-        const btnDeadline = Date.now() + 8000;
+        const btnDeadline = Date.now() + 10000;
+
         while (Date.now() < btnDeadline) {
-            const btn = document.querySelector('[data-marker="query-submit"]');
+            // Первая попытка — по data-marker
+            let btn = document.querySelector('[data-marker="query-submit"]');
+
+            // Вторая попытка — по тексту кнопки
+            if (!btn) {
+                const allBtns = [...document.querySelectorAll('button:not(:disabled)')];
+                btn = allBtns.find(b =>
+                    b.textContent.includes('аналитику') ||
+                    b.textContent.includes('Смотреть') ||
+                    b.textContent.includes('Найти')
+                ) || null;
+            }
+
             if (btn && !btn.disabled) {
                 btn.click();
                 clicked = true;
+                console.log('[Wordstat Parser] Кнопка нажата:', btn.textContent.trim());
                 break;
             }
-            await sleep(100);
+
+            // Запасной вариант — Enter в поле ввода (за 2 сек до дедлайна)
+            if (!clicked && Date.now() > btnDeadline - 2000) {
+                console.warn('[Wordstat Parser] Кнопка не найдена — пробуем Enter в поле ввода');
+                input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+                input.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+                input.dispatchEvent(new KeyboardEvent('keyup',   { key: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+                clicked = true;
+                break;
+            }
+
+            await sleep(150);
         }
-        if (!clicked) throw new Error('Кнопка "Смотреть аналитику" не стала активной');
+
+        if (!clicked) throw new Error('Не удалось отправить запрос (кнопка не стала активной)');
 
         statusEl.textContent = `⏳ Загрузка данных: ${query}`;
 
         // Проверяем капчу
         await waitIfCaptcha();
 
-        // Парсим число (ожидая стабилизации значения и отсутствия серого фильтра)
-        const count = await extractCount(query, 15000);
+        // Парсим число
+        const count = await extractCount(query, 18000);
         return count !== null ? String(count) : 'н/д';
     }
 
@@ -261,8 +347,8 @@
             } catch (e) {
                 results.push({ article, query, count: 'ошибка' });
                 addRow(article, 'ошибка', true);
-                statusEl.textContent = `❌ ${article}: ошибка`;
-                console.error('[Avito Parser]', e);
+                statusEl.textContent = `❌ ${article}: ${e.message}`;
+                console.error('[Wordstat Parser]', e);
             }
 
             currentIndex++;
@@ -270,7 +356,6 @@
 
             if (currentIndex < articles.length && isRunning) {
                 statusEl.textContent = `⏱ Пауза перед следующим...`;
-                // Пауза перед следующим запросом
                 await randomDelay(0.4, 1.9);
             }
         }
@@ -438,12 +523,11 @@
         const h = document.getElementById('hdr');
         h.addEventListener('mousedown', e => {
             if (e.target.id === 'cb') return;
-            e.preventDefault(); // Запрещаем браузеру начинать выделение текста
+            e.preventDefault();
 
             sx = e.clientX; sy = e.clientY;
             ox = el.offsetLeft; oy = el.offsetTop;
 
-            // Временно отключаем выделение текста на всей странице для надежности
             const originalUserSelect = document.body.style.userSelect;
             document.body.style.userSelect = 'none';
 
@@ -458,7 +542,6 @@
                 document.removeEventListener('mouseup', up);
             };
 
-            // Используем passive: true для более плавного скролла/движения, если поддерживается
             document.addEventListener('mousemove', mv, { passive: true });
             document.addEventListener('mouseup', up);
         });
@@ -496,5 +579,5 @@
 
     btnSave.addEventListener('click', () => { if (results.length) downloadCSV(); });
 
-    console.log('[Avito Wordstat Parser] ✅ Скрипт версии 1.5 загружен!');
+    console.log('[Avito Wordstat Parser] ✅ Скрипт версии 2.0 загружен!');
 })();

@@ -27,7 +27,6 @@ function renderGate(err = '') {
           <div class="field">
             <label for="g-pat">GitHub токен (PAT)</label>
             <input id="g-pat" class="input" type="password" placeholder="github_pat_..." required />
-            <div class="hint">Тот же токен, что в админке — или отдельный токен только для чтения</div>
           </div>
           <div class="field">
             <label for="g-priv">Приватный репозиторий</label>

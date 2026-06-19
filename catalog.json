@@ -47,7 +47,7 @@
       "name": "Avito Автопарсер статистики запросов",
       "description": "Автоматически перебирает артикулы и собирает статистику спроса с Авито Wordstat.",
       "category": "avito",
-      "version": "1.9",
+      "version": "2.0",
       "file": "scripts/avito/wordstat.user.js",
       "icon": "📈",
       "color": "#00B894",
@@ -61,7 +61,7 @@
         "аналитика"
       ],
       "installCount": 0,
-      "updatedAt": "2026-06-18"
+      "updatedAt": "2026-06-19"
     },
     {
       "id": "copy-numbers",
