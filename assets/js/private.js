@@ -242,7 +242,10 @@ async function renderStore() {
         ${(s.tags && s.tags.length) ? `<div class="tags">${s.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
         <div class="card-foot">
           <div class="install-stats" data-stats="${escapeHtml(s.id)}">&nbsp;</div>
-          <button class="btn-install btn-install-private" data-file="${escapeHtml(s.file)}" data-id="${escapeHtml(s.id)}" data-name="${escapeHtml(s.name)}">⬇️ Скачать</button>
+          <button class="btn-install btn-install-private" data-file="${escapeHtml(s.file)}" data-id="${escapeHtml(s.id)}" data-name="${escapeHtml(s.name)}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
+            Скачать
+          </button>
         </div>
       </article>
     `;
@@ -259,7 +262,7 @@ async function renderStore() {
 
   async function installPrivateScript(filePath, scriptName, scriptId) {
     const btn = document.querySelector(`[data-file="${cssEscape(filePath)}"]`);
-    if (btn) { btn.dataset.loading = '1'; btn.textContent = '⏳ Загружаю…'; }
+    if (btn) { btn.dataset.loading = '1'; btn.innerHTML = '⏳ Загружаю…'; }
 
     try {
       const token = sessionStorage.getItem('private_token');
@@ -294,10 +297,16 @@ async function renderStore() {
         if (sId) recordInstall(sId);
       } catch { /* ignore */ }
 
-      if (btn) { btn.dataset.loading = ''; btn.textContent = '⬇️ Скачать'; }
+      if (btn) { 
+        btn.dataset.loading = ''; 
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg> Скачать`; 
+      }
     } catch (e) {
       alert('Не удалось скачать скрипт: ' + e.message);
-      if (btn) { btn.dataset.loading = ''; btn.textContent = '⬇️ Скачать'; }
+      if (btn) { 
+        btn.dataset.loading = ''; 
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg> Скачать`; 
+      }
     }
   }
 

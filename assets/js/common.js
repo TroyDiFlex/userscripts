@@ -154,7 +154,10 @@ export function initStore({ visibility, mountEl, searchEl, filtersEl, emptyMsg =
         ${(s.tags && s.tags.length) ? `<div class="tags">${s.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
         <div class="card-foot">
           <div class="install-stats" data-stats="${escapeHtml(s.id)}">&nbsp;</div>
-          <a class="btn-install" data-id="${escapeHtml(s.id)}" target="_blank" rel="noopener" href="${escapeHtml(rawGithubUrl(s.file))}">⬇️ Установить</a>
+          <a class="btn-install" data-id="${escapeHtml(s.id)}" target="_blank" rel="noopener" href="${escapeHtml(rawGithubUrl(s.file))}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
+            Установить
+          </a>
         </div>
       </article>
     `;
