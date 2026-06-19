@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TecAlliance — Скопировать применимость
 // @namespace    https://www.tecalliance.cn/
-// @version      1.6
+// @version      1.7
 // @description  Плавающая кнопка, собирающая применимость (автомобили) и копирующая их в 5 столбцов для Google Таблиц
 // @author       TroyDiFlex
 // @match        https://www.tecalliance.cn/*/part/*

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TecAlliance — Скопировать номера
 // @namespace    https://www.tecalliance.cn/
-// @version      1.3
+// @version      1.4
 // @description  Плавающая кнопка, собирающая все OE-номера и номера аналогов (Basic Info) на странице и копирующая их в буфер обмена
 // @author       TroyDiFlex
 // @match        https://www.tecalliance.cn/*/search/*

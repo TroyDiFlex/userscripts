@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Avito Wordstat — Автопарсер
 // @namespace    https://avito.ru/
-// @version      1.8
+// @version      1.9
 // @description  Автоматически перебирает артикулы и собирает статистику спроса с Авито Wordstat
 // @author       TroyDiFlex
 // @match        https://www.avito.ru/analytics/wordstat*
