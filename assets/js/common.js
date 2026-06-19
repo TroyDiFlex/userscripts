@@ -103,8 +103,24 @@ export function initStore({ visibility, mountEl, searchEl, filtersEl, emptyMsg =
     }
     mountEl.innerHTML = list.map(cardHtml).join('');
     mountEl.querySelectorAll('.carousel').forEach(initCarousel);
+    initInstallTracking(list);
     loadInstallStats(list);
     loadVersions(list);
+  }
+
+  function initInstallTracking(list) {
+    mountEl.querySelectorAll('.btn-install').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        // Записываем установку в фоне
+        const scriptId = btn.dataset.id;
+        if (scriptId) {
+          try {
+            const { recordInstall } = await import('./stats.js');
+            recordInstall(scriptId);
+          } catch(err) { console.error(err); }
+        }
+      });
+    });
   }
 
   function cardHtml(s) {
@@ -137,8 +153,8 @@ export function initStore({ visibility, mountEl, searchEl, filtersEl, emptyMsg =
         <p class="card-desc">${escapeHtml(s.description)}</p>
         ${(s.tags && s.tags.length) ? `<div class="tags">${s.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
         <div class="card-foot">
-          <div class="install-stats" data-stats="${escapeHtml(s.file)}">&nbsp;</div>
-          <a class="btn-install" target="_blank" rel="noopener" href="${escapeHtml(jsdelivrUrl(s.file))}">⬇️ Установить</a>
+          <div class="install-stats" data-stats="${escapeHtml(s.id)}">&nbsp;</div>
+          <a class="btn-install" data-id="${escapeHtml(s.id)}" target="_blank" rel="noopener" href="${escapeHtml(jsdelivrUrl(s.file))}">⬇️ Установить</a>
         </div>
       </article>
     `;
@@ -178,14 +194,12 @@ export function initStore({ visibility, mountEl, searchEl, filtersEl, emptyMsg =
   }
 
   async function loadInstallStats(list) {
-    // Не пытаемся грузить статистику, пока REPO не настроен
-    if (REPO.owner === 'GITHUB_USER') return;
     try {
-      const { getInstallStats } = await import('./jsdelivr.js');
+      const { getInstallStats } = await import('./stats.js');
       for (const s of list) {
         try {
-          const stats = await getInstallStats(s.file);
-          const el = mountEl.querySelector(`[data-stats="${cssEscape(s.file)}"]`);
+          const stats = await getInstallStats(s.id);
+          const el = mountEl.querySelector(`[data-stats="${cssEscape(s.id)}"]`);
           if (el && stats.month > 0) el.textContent = `↓ ${stats.month} за месяц`;
         } catch { /* */ }
       }

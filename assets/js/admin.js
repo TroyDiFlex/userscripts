@@ -1,6 +1,6 @@
 import { loadCatalog, loadPrivateCatalog, escapeHtml } from './common.js';
 import * as gh from './github-api.js';
-import { getInstallStats, clearStatsCache } from './jsdelivr.js';
+import { getInstallStats, clearStatsCache } from './stats.js';
 
 const root = document.getElementById('root');
 const toasts = document.getElementById('toasts');
@@ -653,10 +653,10 @@ async function deleteCategory(id) {
 
 // ============ Stats tab ============
 async function renderStats(el) {
-  const scripts = (state.catalog.scripts || []).filter(s => s.visibility === 'public');
+  const scripts = state.catalog.scripts || [];
   el.innerHTML = `
     <h1>Статистика установок</h1>
-    <p class="subtitle">Данные с jsDelivr CDN. Только публичные скрипты. Кешируются на 10 минут.</p>
+    <p class="subtitle">Данные из Google Sheets. Кешируются на 5 минут.</p>
     <div class="toolbar">
       <button id="refresh" class="btn btn-secondary">🔄 Обновить</button>
     </div>
@@ -675,12 +675,12 @@ async function renderStats(el) {
   document.getElementById('refresh').addEventListener('click', () => { clearStatsCache(); renderStats(el); });
   for (const s of scripts) {
     try {
-      const st = await getInstallStats(s.file);
+      const st = await getInstallStats(s.id);
       const row = el.querySelector(`[data-row="${cssEscapeAttr(s.id)}"]`);
       if (row) {
-        row.children[1].textContent = st.total;
-        row.children[2].textContent = st.month;
-        row.children[3].textContent = st.week;
+        row.children[1].textContent = st.total || 0;
+        row.children[2].textContent = st.month || 0;
+        row.children[3].textContent = st.week || 0;
       }
     } catch { /* */ }
   }

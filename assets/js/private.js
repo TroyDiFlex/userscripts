@@ -59,6 +59,17 @@ function renderGate(err = '') {
 
     try {
       await gh.checkPrivateAuth();
+      // Получаем логин пользователя для статистики
+      try {
+        const userRes = await fetch('https://api.github.com/user', {
+          headers: { 'Authorization': `Bearer ${pat}`, 'X-GitHub-Api-Version': '2022-11-28' }
+        });
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          if (userData.login) localStorage.setItem('gh_login', userData.login);
+        }
+      } catch (err) { /* ignore */ }
+
       // Сохраняем окончательно
       sessionStorage.setItem('private_unlocked', '1');
       sessionStorage.setItem('private_token', pat);
@@ -182,8 +193,22 @@ async function renderStore() {
     grid.innerHTML = list.map(cardHtml).join('');
     grid.querySelectorAll('.carousel').forEach(initCarousel);
     grid.querySelectorAll('.btn-install-private').forEach(btn => {
-      btn.addEventListener('click', () => installPrivateScript(btn.dataset.file, btn.dataset.name));
+      btn.addEventListener('click', () => installPrivateScript(btn.dataset.file, btn.dataset.name, btn.dataset.id));
     });
+    loadInstallStats(list);
+  }
+
+  async function loadInstallStats(list) {
+    try {
+      const { getInstallStats } = await import('./stats.js');
+      for (const s of list) {
+        try {
+          const stats = await getInstallStats(s.id);
+          const el = document.getElementById('grid').querySelector(`[data-stats="${cssEscape(s.id)}"]`);
+          if (el && stats.month > 0) el.textContent = `↓ ${stats.month} за месяц`;
+        } catch { /* */ }
+      }
+    } catch { /* */ }
   }
 
   function cardHtml(s) {
@@ -216,8 +241,8 @@ async function renderStore() {
         <p class="card-desc">${escapeHtml(s.description)}</p>
         ${(s.tags && s.tags.length) ? `<div class="tags">${s.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
         <div class="card-foot">
-          <div class="install-stats">&nbsp;</div>
-          <button class="btn-install btn-install-private" data-file="${escapeHtml(s.file)}" data-name="${escapeHtml(s.name)}">⬇️ Скачать</button>
+          <div class="install-stats" data-stats="${escapeHtml(s.id)}">&nbsp;</div>
+          <button class="btn-install btn-install-private" data-file="${escapeHtml(s.file)}" data-id="${escapeHtml(s.id)}" data-name="${escapeHtml(s.name)}">⬇️ Скачать</button>
         </div>
       </article>
     `;
@@ -232,7 +257,7 @@ async function renderStore() {
     return `https://api.github.com/repos/${owner}/${name}/contents/${path}`;
   }
 
-  async function installPrivateScript(filePath, scriptName) {
+  async function installPrivateScript(filePath, scriptName, scriptId) {
     const btn = document.querySelector(`[data-file="${cssEscape(filePath)}"]`);
     if (btn) { btn.dataset.loading = '1'; btn.textContent = '⏳ Загружаю…'; }
 
@@ -261,6 +286,13 @@ async function renderStore() {
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(objectUrl), 5000);
+
+      // Записываем статистику в фоне
+      try {
+        const { recordInstall } = await import('./stats.js');
+        const sId = btn ? btn.dataset.id : '';
+        if (sId) recordInstall(sId);
+      } catch { /* ignore */ }
 
       if (btn) { btn.dataset.loading = ''; btn.textContent = '⬇️ Скачать'; }
     } catch (e) {
