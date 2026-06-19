@@ -5,8 +5,8 @@
 // @description  Подсвечивает карточки без продвижения + считает стоимость просмотра
 // @author       TroyDiFlex
 // @match        https://www.avito.ru/*
-// @updateURL    https://cdn.jsdelivr.net/gh/troydiflex/userscripts@main/scripts/avito/pro-tools.user.js
-// @downloadURL  https://cdn.jsdelivr.net/gh/troydiflex/userscripts@main/scripts/avito/pro-tools.user.js
+// @updateURL    https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/scripts/avito/pro-tools.user.js
+// @downloadURL  https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/scripts/avito/pro-tools.user.js
 // @run-at       document-idle
 // @grant        none
 // ==/UserScript==

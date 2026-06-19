@@ -7,8 +7,8 @@
 export const REPO = { owner: 'TroyDiFlex', name: 'userscripts' };
 // ============================================================
 
-export function jsdelivrUrl(filePath) {
-  return `https://cdn.jsdelivr.net/gh/${REPO.owner}/${REPO.name}@main/${filePath}`;
+export function rawGithubUrl(filePath) {
+  return `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/${filePath}`;
 }
 
 export async function loadCatalog() {
@@ -154,7 +154,7 @@ export function initStore({ visibility, mountEl, searchEl, filtersEl, emptyMsg =
         ${(s.tags && s.tags.length) ? `<div class="tags">${s.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
         <div class="card-foot">
           <div class="install-stats" data-stats="${escapeHtml(s.id)}">&nbsp;</div>
-          <a class="btn-install" data-id="${escapeHtml(s.id)}" target="_blank" rel="noopener" href="${escapeHtml(jsdelivrUrl(s.file))}">⬇️ Установить</a>
+          <a class="btn-install" data-id="${escapeHtml(s.id)}" target="_blank" rel="noopener" href="${escapeHtml(rawGithubUrl(s.file))}">⬇️ Установить</a>
         </div>
       </article>
     `;

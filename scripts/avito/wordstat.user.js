@@ -5,8 +5,8 @@
 // @description  Автоматически перебирает артикулы и собирает статистику спроса с Авито Wordstat
 // @author       TroyDiFlex
 // @match        https://www.avito.ru/analytics/wordstat*
-// @updateURL    https://cdn.jsdelivr.net/gh/troydiflex/userscripts@main/scripts/avito/wordstat.user.js
-// @downloadURL  https://cdn.jsdelivr.net/gh/troydiflex/userscripts@main/scripts/avito/wordstat.user.js
+// @updateURL    https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/scripts/avito/wordstat.user.js
+// @downloadURL  https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/scripts/avito/wordstat.user.js
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==

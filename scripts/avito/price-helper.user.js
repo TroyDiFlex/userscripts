@@ -5,8 +5,8 @@
 // @description  Анализирует первые 8 объявлений конкурентов, подсвечивает лучшие цены, и считает рекомендуемую цену.
 // @author       TroyDiFlex
 // @match        https://www.avito.ru/*
-// @updateURL    https://cdn.jsdelivr.net/gh/troydiflex/userscripts@main/scripts/avito/price-helper.user.js
-// @downloadURL  https://cdn.jsdelivr.net/gh/troydiflex/userscripts@main/scripts/avito/price-helper.user.js
+// @updateURL    https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/scripts/avito/price-helper.user.js
+// @downloadURL  https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/scripts/avito/price-helper.user.js
 // @grant        GM_addStyle
 // @run-at       document-idle
 // ==/UserScript==

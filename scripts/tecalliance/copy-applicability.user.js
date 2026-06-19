@@ -8,8 +8,8 @@
 // @match        https://*.tecalliance.cn/*/part/*
 // @match        https://tecalliance.net/*/part/*
 // @match        https://*.tecalliance.net/*/part/*
-// @updateURL    https://cdn.jsdelivr.net/gh/troydiflex/userscripts@main/scripts/tecalliance/copy-applicability.user.js
-// @downloadURL  https://cdn.jsdelivr.net/gh/troydiflex/userscripts@main/scripts/tecalliance/copy-applicability.user.js
+// @updateURL    https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/scripts/tecalliance/copy-applicability.user.js
+// @downloadURL  https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/scripts/tecalliance/copy-applicability.user.js
 // @grant        GM_setClipboard
 // @run-at       document-idle
 // ==/UserScript==
