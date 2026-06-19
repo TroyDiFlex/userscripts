@@ -203,8 +203,8 @@ export function initStore({ visibility, mountEl, searchEl, filtersEl, emptyMsg =
         try {
           const stats = await getInstallStats(s.id);
           const el = mountEl.querySelector(`[data-stats="${cssEscape(s.id)}"]`);
-          if (el && stats.month > 0) {
-            el.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:4px;margin-top:-2px"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline><line x1="5" y1="21" x2="19" y2="21"></line></svg>${stats.month} за месяц`;
+          if (el && stats.total > 0) {
+            el.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:4px;margin-top:-2px"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline><line x1="5" y1="21" x2="19" y2="21"></line></svg>${stats.total}`;
           }
         } catch { /* */ }
       }
