@@ -205,7 +205,9 @@ async function renderStore() {
         try {
           const stats = await getInstallStats(s.id);
           const el = document.getElementById('grid').querySelector(`[data-stats="${cssEscape(s.id)}"]`);
-          if (el && stats.month > 0) el.textContent = `↓ ${stats.month} за месяц`;
+          if (el && stats.month > 0) {
+            el.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:4px;margin-top:-2px"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline><line x1="5" y1="21" x2="19" y2="21"></line></svg>${stats.month} за месяц`;
+          }
         } catch { /* */ }
       }
     } catch { /* */ }
@@ -243,7 +245,7 @@ async function renderStore() {
         <div class="card-foot">
           <div class="install-stats" data-stats="${escapeHtml(s.id)}">&nbsp;</div>
           <button class="btn-install btn-install-private" data-file="${escapeHtml(s.file)}" data-id="${escapeHtml(s.id)}" data-name="${escapeHtml(s.name)}">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline><line x1="5" y1="21" x2="19" y2="21"></line></svg>
             Скачать
           </button>
         </div>
@@ -299,13 +301,13 @@ async function renderStore() {
 
       if (btn) { 
         btn.dataset.loading = ''; 
-        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg> Скачать`; 
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline><line x1="5" y1="21" x2="19" y2="21"></line></svg> Скачать`; 
       }
     } catch (e) {
       alert('Не удалось скачать скрипт: ' + e.message);
       if (btn) { 
         btn.dataset.loading = ''; 
-        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg> Скачать`; 
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline><line x1="5" y1="21" x2="19" y2="21"></line></svg> Скачать`; 
       }
     }
   }
