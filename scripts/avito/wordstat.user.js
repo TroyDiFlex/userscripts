@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Avito Wordstat — Автопарсер
 // @namespace    https://avito.ru/
-// @version      2.0
+// @version      2.1
 // @description  Автоматически перебирает артикулы и собирает статистику спроса с Авито Wordstat
 // @author       TroyDiFlex
 // @match        https://www.avito.ru/analytics/wordstat*
@@ -171,13 +171,26 @@
             }
 
             // 2. Ищем элемент «Всего запросов»
-            const allEls = document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, span, strong, b, div');
-            for (const el of allEls) {
-                // Берём только прямой текст без дочерних узлов, чтобы не сканировать всю страницу
-                const txt = el.textContent.trim();
-                if (txt.startsWith('Всего запросов') && /\d/.test(txt)) {
+            // Приоритет: ищем h3 внутри конкретного контейнера (самый точный)
+            const directText = (el) => [...el.childNodes]
+                .filter(n => n.nodeType === Node.TEXT_NODE)
+                .map(n => n.textContent)
+                .join('')
+                .trim();
+
+            const candidates = [
+                // Точный селектор: h3 внутри блока аналитики
+                ...(document.querySelectorAll('[data-marker="analytics-non-zero"] h3') || []),
+                // Запасной: любой h3/h2/h1 с нужным текстом
+                ...(document.querySelectorAll('h1, h2, h3') || []),
+            ];
+
+            for (const el of candidates) {
+                // Читаем только прямые текстовые ноды — без дочерних элементов!
+                const txt = directText(el);
+                if (txt.includes('Всего запросов') && /\d/.test(txt)) {
                     if (!isFaded(el)) {
-                        const match = txt.match(/Всего запросов[^\d]*([\d\s\u00a0]+)/i);
+                        const match = txt.match(/Всего запросов[^\d]*([\d\u00a0 ]+)/i);
                         if (match && match[1]) {
                             const cleanNum = match[1].replace(/[^\d]/g, '');
                             if (cleanNum) {
@@ -579,5 +592,5 @@
 
     btnSave.addEventListener('click', () => { if (results.length) downloadCSV(); });
 
-    console.log('[Avito Wordstat Parser] ✅ Скрипт версии 2.0 загружен!');
+    console.log('[Avito Wordstat Parser] ✅ Скрипт версии 2.1 загружен!');
 })();
