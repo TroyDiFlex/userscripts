@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Avito Wordstat — Автопарсер
 // @namespace    https://avito.ru/
-// @version      2.1
+// @version      2.2
 // @description  Автоматически перебирает артикулы и собирает статистику спроса с Авито Wordstat
 // @author       TroyDiFlex
 // @match        https://www.avito.ru/analytics/wordstat*
@@ -13,6 +13,24 @@
 
 (function () {
     'use strict';
+
+    // ─── НАСТРОЙКИ (localStorage) ───
+    const SETTINGS_KEY = 'avito_wordstat_settings';
+    function loadSettings() {
+        try {
+            const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+            return {
+                sortEnabled: s.sortEnabled !== false, // по умолчанию включена
+                copyFrequency: s.copyFrequency !== false, // по умолчанию включена
+            };
+        } catch (_) {
+            return { sortEnabled: true, copyFrequency: true };
+        }
+    }
+    function saveSettings(s) {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+    }
+    let settings = loadSettings();
 
     // ─── СОСТОЯНИЕ ───
     let articles = [];
@@ -355,11 +373,11 @@
             try {
                 const count = await processOne(article, query);
                 results.push({ article, query, count });
-                addRow(article, count);
+                renderPreview();
                 statusEl.textContent = `✅ ${article}: ${count}`;
             } catch (e) {
                 results.push({ article, query, count: 'ошибка' });
-                addRow(article, 'ошибка', true);
+                renderPreview();
                 statusEl.textContent = `❌ ${article}: ${e.message}`;
                 console.error('[Wordstat Parser]', e);
             }
@@ -384,6 +402,67 @@
         btnSave.disabled = results.length === 0;
     }
 
+    // ─── ПОЛУЧИТЬ ОТСОРТИРОВАННЫЕ РЕЗУЛЬТАТЫ ───
+    function getSortedResults() {
+        if (!settings.sortEnabled) return [...results];
+        return [...results].sort((a, b) => {
+            const na = parseInt(a.count, 10) || 0;
+            const nb = parseInt(b.count, 10) || 0;
+            return nb - na; // по убыванию
+        });
+    }
+
+    // ─── РЕНДЕР ПРЕВЬЮ (с учётом сортировки) ───
+    function renderPreview() {
+        if (results.length === 0) {
+            preview.style.display = 'none';
+            preview.innerHTML = '';
+            return;
+        }
+        preview.style.display = 'block';
+        preview.innerHTML = '';
+        const sorted = getSortedResults();
+        for (const r of sorted) {
+            const d = document.createElement('div');
+            const isErr = r.count === 'ошибка';
+            d.className = 'rr' + (isErr ? ' re' : '');
+            d.textContent = isErr ? `✗ ${r.article} — ошибка` : `✓ ${r.article} — ${r.count}`;
+            preview.appendChild(d);
+        }
+    }
+
+    // ─── КОПИРОВАНИЕ В БУФЕР ОБМЕНА ───
+    function copyToClipboard() {
+        if (!results.length) return;
+        const sorted = getSortedResults();
+        let text;
+        if (settings.copyFrequency) {
+            // Два столбца: артикул\tчастотность (TSV для Google Sheets)
+            text = sorted.map(r => `${r.article}\t${r.count}`).join('\n');
+        } else {
+            // Только артикулы
+            text = sorted.map(r => r.article).join('\n');
+        }
+        navigator.clipboard.writeText(text).then(() => {
+            const orig = btnCopy.textContent;
+            btnCopy.textContent = '✅';
+            setTimeout(() => { btnCopy.textContent = orig; }, 1500);
+        }).catch(() => {
+            // Фоллбэк для старых браузеров
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            const orig = btnCopy.textContent;
+            btnCopy.textContent = '✅';
+            setTimeout(() => { btnCopy.textContent = orig; }, 1500);
+        });
+    }
+
     // ─── CSV СКАЧИВАНИЕ ───
     function downloadCSV() {
         const BOM = '\uFEFF';
@@ -405,15 +484,7 @@
         counterEl.textContent = `${currentIndex} / ${articles.length}`;
     }
 
-    function addRow(article, count, err = false) {
-        preview.style.display = 'block';
-        const d = document.createElement('div');
-        d.className = 'rr' + (err ? ' re' : '');
-        d.textContent = err ? `✗ ${article} — ошибка` : `✓ ${article} — ${count}`;
-        preview.insertBefore(d, preview.firstChild);
-    }
-
-    // ─── СОЗДАЁМ ПАНЕЛЬ (MINIMALIST UI) ───
+    // ─── СОЗДАЁМ ПАНЕЛЬ ───
     const panel = document.createElement('div');
     panel.id = 'ap';
     panel.innerHTML = `
@@ -487,8 +558,36 @@
             border-radius: 8px; padding: 10px; font-size: 11px; color: #ff453a;
             margin-top: 12px; display: none; text-align: center; font-weight: 500;
         }
+
+        /* Кнопка свернуть */
         #cb { position: absolute; top: 12px; right: 12px; background: none; border: none; color: #86868b; cursor: pointer; font-size: 14px; padding: 4px; flex: none!important; line-height: 1; border-radius: 4px; transition: background 0.2s, color 0.2s; }
         #cb:hover { color: #f5f5f7; background: rgba(255, 255, 255, 0.1); }
+
+        /* Панель нижних кнопок (копировать + настройки) */
+        .ab { display: flex; gap: 6px; margin-top: 10px; justify-content: flex-end; }
+        .ab button {
+            flex: none; padding: 5px 10px; border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 7px; background: rgba(255,255,255,0.06);
+            color: #d1d1d6; cursor: pointer; font-size: 13px;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+            line-height: 1;
+        }
+        .ab button:hover { background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.25); }
+
+        /* Попап настроек */
+        #sp {
+            display: none; position: absolute; bottom: calc(100% + 8px); right: 0;
+            background: rgba(36, 36, 40, 0.98); border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 10px; padding: 14px 16px; width: 230px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            font-size: 12px; color: #d1d1d6; z-index: 10;
+        }
+        #sp.open { display: block; }
+        #sp .sp-title { font-size: 11px; font-weight: 600; color: #86868b; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+        #sp label { display: flex; align-items: center; gap: 9px; cursor: pointer; padding: 5px 0; user-select: none; }
+        #sp label + label { border-top: 1px solid rgba(255,255,255,0.06); }
+        #sp input[type=checkbox] { width: 15px; height: 15px; accent-color: #0a84ff; cursor: pointer; flex-shrink: 0; }
+        .sp-wrap { position: relative; }
     </style>
     <h3 id="hdr">📊 Парсер Wordstat <button id="cb" title="Свернуть">▲</button></h3>
     <div id="bd">
@@ -506,6 +605,17 @@
             <div id="ct">0 / 0</div>
         </div>
         <div id="pv"></div>
+        <div class="ab">
+            <button id="bcopy" title="Скопировать данные в буфер обмена">📋</button>
+            <div class="sp-wrap">
+                <button id="bgear" title="Настройки">⚙️</button>
+                <div id="sp">
+                    <div class="sp-title">Настройки</div>
+                    <label><input type="checkbox" id="chkSort"> Сортировать по частотности</label>
+                    <label><input type="checkbox" id="chkFreq"> Копировать частотность</label>
+                </div>
+            </div>
+        </div>
     </div>`;
     document.body.appendChild(panel);
 
@@ -513,6 +623,11 @@
     const btnStart = document.getElementById('bs');
     const btnPause = document.getElementById('bp');
     const btnSave = document.getElementById('bv');
+    const btnCopy = document.getElementById('bcopy');
+    const btnGear = document.getElementById('bgear');
+    const settingsPopup = document.getElementById('sp');
+    const chkSort = document.getElementById('chkSort');
+    const chkFreq = document.getElementById('chkFreq');
     const progressBar = document.getElementById('pb');
     const statusEl = document.getElementById('st');
     const counterEl = document.getElementById('ct');
@@ -521,6 +636,36 @@
     const textareaEl = document.getElementById('ta');
     const collapseBtn = document.getElementById('cb');
     const bodyEl = document.getElementById('bd');
+
+    // Применяем начальные значения чекбоксов
+    chkSort.checked = settings.sortEnabled;
+    chkFreq.checked = settings.copyFrequency;
+
+    // ─── ОБРАБОТЧИКИ НАСТРОЕК ───
+    chkSort.addEventListener('change', () => {
+        settings.sortEnabled = chkSort.checked;
+        saveSettings(settings);
+        renderPreview(); // перерисовать с новой сортировкой
+    });
+    chkFreq.addEventListener('change', () => {
+        settings.copyFrequency = chkFreq.checked;
+        saveSettings(settings);
+    });
+
+    // Попап шестерёнки — открыть/закрыть
+    btnGear.addEventListener('click', (e) => {
+        e.stopPropagation();
+        settingsPopup.classList.toggle('open');
+    });
+    // Закрыть попап при клике вне
+    document.addEventListener('click', (e) => {
+        if (!settingsPopup.contains(e.target) && e.target !== btnGear) {
+            settingsPopup.classList.remove('open');
+        }
+    });
+
+    // Кнопка копирования
+    btnCopy.addEventListener('click', copyToClipboard);
 
     // Свернуть
     let collapsed = false;
@@ -579,6 +724,7 @@
         currentIndex = 0;
         results = [];
         preview.innerHTML = '';
+        preview.style.display = 'none';
         captchaWarn.style.display = 'none';
         runParser();
     });
@@ -592,5 +738,5 @@
 
     btnSave.addEventListener('click', () => { if (results.length) downloadCSV(); });
 
-    console.log('[Avito Wordstat Parser] ✅ Скрипт версии 2.1 загружен!');
+    console.log('[Avito Wordstat Parser] ✅ Скрипт версии 2.2 загружен!');
 })();
