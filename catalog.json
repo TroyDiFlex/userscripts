@@ -23,26 +23,6 @@
       "updatedAt": "2026-06-18"
     },
     {
-      "id": "pro-tools",
-      "name": "Avito Pro Tools",
-      "description": "Подсвечивает в личном кабинете карточки без продвижения и показывает стоимость просмотра.",
-      "category": "avito",
-      "version": "2.4",
-      "file": "scripts/avito/pro-tools.user.js",
-      "icon": "📊",
-      "color": "#6C63FF",
-      "images": [
-        "images/scripts/pro-tools-1781819787111-0.png"
-      ],
-      "tags": [
-        "авито",
-        "продвижение",
-        "статистика"
-      ],
-      "installCount": 0,
-      "updatedAt": "2026-06-18"
-    },
-    {
       "id": "wordstat",
       "name": "Avito Автопарсер статистики запросов",
       "description": "Автоматически перебирает артикулы и собирает статистику спроса с Авито Wordstat.",
@@ -114,6 +94,26 @@
         "tecalliance",
         "применимость",
         "копирование"
+      ],
+      "installCount": 0,
+      "updatedAt": "2026-06-18"
+    },
+    {
+      "id": "pro-tools",
+      "name": "Avito Pro Tools",
+      "description": "Подсвечивает в личном кабинете карточки без продвижения и показывает стоимость просмотра.",
+      "category": "avito",
+      "version": "2.4",
+      "file": "scripts/avito/pro-tools.user.js",
+      "icon": "📊",
+      "color": "#6C63FF",
+      "images": [
+        "images/scripts/pro-tools-1781819787111-0.png"
+      ],
+      "tags": [
+        "авито",
+        "продвижение",
+        "статистика"
       ],
       "installCount": 0,
       "updatedAt": "2026-06-18"
