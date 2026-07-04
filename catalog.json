@@ -32,7 +32,7 @@
       "icon": "📈",
       "color": "#00B894",
       "images": [
-        "images/scripts/wordstat-1781820797282-0.png"
+        "images/scripts/wordstat-1783168028381-0.png"
       ],
       "tags": [
         "авито",
@@ -41,7 +41,7 @@
         "аналитика"
       ],
       "installCount": 0,
-      "updatedAt": "2026-06-19"
+      "updatedAt": "2026-07-04"
     },
     {
       "id": "image-downloader",
