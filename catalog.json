@@ -95,14 +95,16 @@
       "file": "scripts/tecalliance/copy-applicability.user.js",
       "icon": "📋",
       "color": "#0984E3",
-      "images": [],
+      "images": [
+        "images/scripts/copy-applicability-1783166692582-0.png"
+      ],
       "tags": [
         "tecalliance",
         "применимость",
         "копирование"
       ],
       "installCount": 0,
-      "updatedAt": "2026-06-18"
+      "updatedAt": "2026-07-04"
     },
     {
       "id": "pro-tools",
