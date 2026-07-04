@@ -59,9 +59,11 @@
 .table tr:hover td { background: rgba(255,255,255,0.02); }
 .table .row-icon { width: 36px; height: 36px; border-radius: 8px; display: inline-grid; place-items: center; font-size: 18px; vertical-align: middle; margin-right: 10px; }
 .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.order-controls { display: flex; gap: 6px; }
 .icon-btn { width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; display: grid; place-items: center; transition: all var(--t); font-size: 14px; }
 .icon-btn:hover { color: var(--text); border-color: var(--border-strong); background: var(--bg-card); }
 .icon-btn.danger:hover { color: var(--danger); border-color: var(--danger); }
+.icon-btn:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
 
 .badge { display: inline-block; padding: 3px 10px; border-radius: var(--radius-pill); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
 .badge-public { background: rgba(0, 214, 143, 0.15); color: var(--success); }

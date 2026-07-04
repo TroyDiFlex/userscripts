@@ -32,6 +32,7 @@ let state = {
   publicCatalog: null,   // raw публичный catalog.json
   privateCatalog: null,  // raw приватный catalog.json
   loading: false,
+  orderDirty: { public: false, private: false },
 };
 
 // ============ Toast ============
@@ -96,6 +97,7 @@ async function loadAllCatalogs() {
     scripts: [...pubScripts, ...privScripts],
     categories: cats,
   };
+  state.orderDirty = { public: false, private: false };
 }
 
 // ============ Gate ============
@@ -199,34 +201,48 @@ function renderTab() {
 // ============ Scripts tab ============
 function renderScripts(el) {
   const scripts = state.catalog.scripts || [];
+  const orderChanged = state.orderDirty.public || state.orderDirty.private;
   el.innerHTML = `
     <h1>Скрипты</h1>
     <p class="subtitle">Всего ${scripts.length}. Изменения сохраняются прямо в репозиторий.</p>
     <div class="toolbar">
       <button id="add" class="btn btn-primary">+ Добавить скрипт</button>
+      <button id="save-order" class="btn btn-secondary" ${orderChanged ? '' : 'disabled'}>↕ Сохранить порядок</button>
       <div class="spacer"></div>
     </div>
     <div class="table-wrap">
       <table class="table">
         <thead><tr>
-          <th>Название</th><th>Категория</th><th>Версия</th><th>Видимость</th><th></th>
+          <th>Порядок</th><th>Название</th><th>Категория</th><th>Версия</th><th>Видимость</th><th></th>
         </tr></thead>
         <tbody>
-          ${scripts.length ? scripts.map(rowHtml).join('') : `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">Пока нет скриптов</td></tr>`}
+          ${scripts.length ? scripts.map((s) => rowHtml(s, scripts)).join('') : `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">Пока нет скриптов</td></tr>`}
         </tbody>
       </table>
     </div>
   `;
   document.getElementById('add').addEventListener('click', () => openScriptModal(null));
+  document.getElementById('save-order').addEventListener('click', saveScriptOrder);
   el.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => openScriptModal(b.dataset.edit)));
   el.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', () => deleteScript(b.dataset.del)));
+  el.querySelectorAll('[data-order-id]').forEach((b) => {
+    b.addEventListener('click', () => moveScriptOrder(b.dataset.orderId, Number(b.dataset.orderDir)));
+  });
 }
 
-function rowHtml(s) {
+function rowHtml(s, scripts) {
   const cat = (state.catalog.categories || []).find((c) => c.id === s.category);
   const isPrivate = s.visibility === 'private';
+  const sameVisibility = scripts.filter((x) => (x.visibility || 'public') === (s.visibility || 'public'));
+  const orderIndex = sameVisibility.findIndex((x) => x.id === s.id);
   return `
     <tr>
+      <td>
+        <div class="order-controls">
+          <button class="icon-btn" data-order-id="${escapeHtml(s.id)}" data-order-dir="-1" title="Выше" ${orderIndex <= 0 ? 'disabled' : ''}>↑</button>
+          <button class="icon-btn" data-order-id="${escapeHtml(s.id)}" data-order-dir="1" title="Ниже" ${orderIndex >= sameVisibility.length - 1 ? 'disabled' : ''}>↓</button>
+        </div>
+      </td>
       <td>
         <span class="row-icon" style="background:${escapeHtml(s.color || '#6C63FF')}33;border:1px solid ${escapeHtml(s.color || '#6C63FF')}66">${escapeHtml(s.icon || '📜')}</span>
         <strong>${escapeHtml(s.name)}</strong>
@@ -240,6 +256,61 @@ function rowHtml(s) {
       </div></td>
     </tr>
   `;
+}
+
+function moveScriptOrder(id, dir) {
+  const scripts = state.catalog.scripts || [];
+  const from = scripts.findIndex((s) => s.id === id);
+  if (from < 0 || !dir) return;
+
+  const visibility = scripts[from].visibility || 'public';
+  const sameVisibilityIndexes = scripts
+    .map((s, i) => ({ s, i }))
+    .filter(({ s }) => (s.visibility || 'public') === visibility)
+    .map(({ i }) => i);
+  const fromPos = sameVisibilityIndexes.indexOf(from);
+  const to = sameVisibilityIndexes[fromPos + dir];
+  if (to === undefined) return;
+
+  [scripts[from], scripts[to]] = [scripts[to], scripts[from]];
+  state.orderDirty[visibility] = true;
+  renderTab();
+}
+
+async function saveScriptOrder() {
+  const btn = document.getElementById('save-order');
+  if (!btn || btn.disabled) return;
+  btn.dataset.loading = '1';
+  btn.textContent = 'Сохраняю…';
+
+  try {
+    for (const usePrivate of [false, true]) {
+      const visibility = usePrivate ? 'private' : 'public';
+      if (!state.orderDirty[visibility]) continue;
+      if (usePrivate && !gh.hasPrivateRepo()) continue;
+
+      const orderedIds = (state.catalog.scripts || [])
+        .filter((s) => (s.visibility || 'public') === visibility)
+        .map((s) => s.id);
+      const order = new Map(orderedIds.map((id, index) => [id, index]));
+      const { sha: catSha, cat } = await loadCatalogFile(usePrivate);
+      cat.scripts = (cat.scripts || []).slice().sort((a, b) => {
+        const ai = order.has(a.id) ? order.get(a.id) : Number.MAX_SAFE_INTEGER;
+        const bi = order.has(b.id) ? order.get(b.id) : Number.MAX_SAFE_INTEGER;
+        return ai - bi;
+      });
+
+      await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `reorder ${visibility} scripts`, catSha, usePrivate);
+    }
+
+    await loadAllCatalogs();
+    toast('Порядок сохранён');
+    renderTab();
+  } catch (e) {
+    toast('Ошибка: ' + e.message, 'error', 8000);
+    btn.dataset.loading = '';
+    btn.textContent = '↕ Сохранить порядок';
+  }
 }
 
 // ============ Script modal ============
