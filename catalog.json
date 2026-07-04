@@ -75,14 +75,16 @@
       "file": "scripts/tecalliance/copy-numbers.user.js",
       "icon": "🔢",
       "color": "#0984E3",
-      "images": [],
+      "images": [
+        "images/scripts/copy-numbers-1783166583775-0.png"
+      ],
       "tags": [
         "tecalliance",
         "номера",
         "копирование"
       ],
       "installCount": 0,
-      "updatedAt": "2026-06-18"
+      "updatedAt": "2026-07-04"
     },
     {
       "id": "copy-applicability",
