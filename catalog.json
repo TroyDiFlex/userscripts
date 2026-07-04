@@ -64,6 +64,25 @@
       "updatedAt": "2026-06-19"
     },
     {
+      "id": "image-downloader",
+      "name": "eBay + Avito — скачивание фото",
+      "description": "Добавляет компактный виджет для выбора и скачивания фотографий со страниц товаров eBay и объявлений Авито.",
+      "category": "avito",
+      "version": "1.1",
+      "file": "scripts/avito/image-downloader.user.js",
+      "icon": "🖼️",
+      "color": "#0EA5E9",
+      "images": [],
+      "tags": [
+        "авито",
+        "ebay",
+        "фото",
+        "скачивание"
+      ],
+      "installCount": 0,
+      "updatedAt": "2026-07-04"
+    },
+    {
       "id": "copy-numbers",
       "name": "TecAlliance — Скопировать номера",
       "description": "Быстрое копирование артикулов из TecAlliance одной кнопкой.",
