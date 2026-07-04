@@ -51,8 +51,12 @@
       "version": "1.1",
       "file": "scripts/avito/image-downloader.user.js",
       "icon": "🖼️",
-      "color": "#0EA5E9",
-      "images": [],
+      "color": "#a855f7",
+      "images": [
+        "images/scripts/image-downloader-1783166204942-0.png",
+        "images/scripts/image-downloader-1783166207518-1.png",
+        "images/scripts/image-downloader-1783166209526-2.png"
+      ],
       "tags": [
         "авито",
         "ebay",
