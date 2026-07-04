@@ -10,8 +10,8 @@
       "icon": "🏷️",
       "color": "#FF6B35",
       "images": [
-        "images/scripts/price-helper-1781820614146-0.png",
-        "images/scripts/price-helper-1781820616880-1.png"
+        "images/scripts/price-helper-1781820616880-1.png",
+        "images/scripts/price-helper-1781820614146-0.png"
       ],
       "tags": [
         "авито",
@@ -19,7 +19,7 @@
         "конкуренты"
       ],
       "installCount": 0,
-      "updatedAt": "2026-06-18"
+      "updatedAt": "2026-07-04"
     },
     {
       "id": "wordstat",
