@@ -1,4 +1,4 @@
-import { loadCatalog, loadPrivateCatalog, escapeHtml } from './common.js';
+import { loadCatalog, loadPrivateCatalog, escapeHtml, loadScriptVersion } from './common.js';
 import * as gh from './github-api.js';
 import { getInstallStats, clearStatsCache } from './stats.js';
 
@@ -48,6 +48,16 @@ function toast(msg, type = 'success', ms = 4000) {
 async function sha256Hex(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function sanitizeCatalogScriptVersions(cat) {
+  if (!cat || !Array.isArray(cat.scripts)) return cat;
+  cat.scripts = cat.scripts.map((script) => {
+    const clean = { ...script };
+    delete clean.version;
+    return clean;
+  });
+  return cat;
 }
 
 // ============ Bootstrap ============
@@ -228,6 +238,20 @@ function renderScripts(el) {
   el.querySelectorAll('[data-order-id]').forEach((b) => {
     b.addEventListener('click', () => moveScriptOrder(b.dataset.orderId, Number(b.dataset.orderDir)));
   });
+  loadAdminVersions(el, scripts);
+}
+
+async function loadAdminVersions(el, scripts) {
+  for (const s of scripts) {
+    try {
+      const isPrivate = s.visibility === 'private';
+      const version = await loadScriptVersion(s.file, { visibility: isPrivate ? 'private' : 'public' });
+      if (version) {
+        const target = el.querySelector(`[data-script-version="${cssEscapeAttr(s.id)}"]`);
+        if (target) target.textContent = `v${version}`;
+      }
+    } catch { /* */ }
+  }
 }
 
 function rowHtml(s, scripts) {
@@ -248,7 +272,7 @@ function rowHtml(s, scripts) {
         <strong>${escapeHtml(s.name)}</strong>
       </td>
       <td>${escapeHtml(cat?.name || s.category)}</td>
-      <td>—</td>
+      <td><span data-script-version="${escapeHtml(s.id)}">&mdash;</span></td>
       <td><span class="badge ${isPrivate ? 'badge-private' : 'badge-public'}">${isPrivate ? '🔒 Приватный' : '🌐 Публичный'}</span></td>
       <td><div class="row-actions">
         <button class="icon-btn" data-edit="${escapeHtml(s.id)}" title="Редактировать">✏️</button>
@@ -300,6 +324,7 @@ async function saveScriptOrder() {
         return ai - bi;
       });
 
+      sanitizeCatalogScriptVersions(cat);
       await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `reorder ${visibility} scripts`, catSha, usePrivate);
     }
 
@@ -319,7 +344,7 @@ function openScriptModal(id) {
   const orig = editing ? state.catalog.scripts.find((s) => s.id === id) : null;
   const s = orig ? { ...orig, tags: [...(orig.tags || [])], images: [...(orig.images || [])] } : {
     id: '', name: '', description: '', category: state.catalog.categories[0]?.id || '',
-    visibility: 'public', version: '1.0', file: '', icon: '📜', color: '#6C63FF',
+    visibility: 'public', file: '', icon: '📜', color: '#6C63FF',
     images: [], tags: [],
   };
 
@@ -558,6 +583,7 @@ function openScriptModal(id) {
       s.updatedAt = new Date().toISOString().slice(0, 10);
       const scriptForCatalog = { ...s };
       delete scriptForCatalog.visibility; // visibility не хранится в catalog.json
+      delete scriptForCatalog.version;
 
       const { sha: catSha, cat } = await loadCatalogFile(isPrivate);
       const idx = cat.scripts.findIndex((x) => x.id === s.id);
@@ -565,6 +591,7 @@ function openScriptModal(id) {
       // Убеждаемся что категории синхронизированы
       const allCats = state.catalog.categories || [];
       cat.categories = allCats;
+      sanitizeCatalogScriptVersions(cat);
       await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `${editing ? 'update' : 'add'} script: ${s.id}`, catSha, isPrivate);
 
       // 5) Если менялась видимость — удалить из старого catalog.json
@@ -573,6 +600,7 @@ function openScriptModal(id) {
         const { sha: oldCatSha, cat: oldCat } = await loadCatalogFile(oldPrivate);
         if (oldCatSha) {
           oldCat.scripts = (oldCat.scripts || []).filter((x) => x.id !== s.id);
+          sanitizeCatalogScriptVersions(oldCat);
           await gh.putFileText(CATALOG_PATH, JSON.stringify(oldCat, null, 2), `remove script (moved): ${s.id}`, oldCatSha, oldPrivate);
         }
       }
@@ -615,6 +643,7 @@ async function deleteScript(id) {
     // Обновить catalog.json
     const { sha: catSha, cat } = await loadCatalogFile(isPrivate);
     cat.scripts = (cat.scripts || []).filter((x) => x.id !== id);
+    sanitizeCatalogScriptVersions(cat);
     await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `delete script: ${id}`, catSha, isPrivate);
     await loadAllCatalogs();
     toast('Удалено');
@@ -696,6 +725,7 @@ function openCategoryModal(id) {
         cat.categories = cat.categories || [];
         const idx = cat.categories.findIndex((x) => x.id === c.id);
         if (idx >= 0) cat.categories[idx] = c; else cat.categories.push(c);
+        sanitizeCatalogScriptVersions(cat);
         await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `${editing ? 'update' : 'add'} category: ${c.id}`, catSha, usePrivate);
       }
       await loadAllCatalogs();
@@ -714,6 +744,7 @@ async function deleteCategory(id) {
       const { sha: catSha, cat } = await loadCatalogFile(usePrivate);
       if (!catSha) continue;
       cat.categories = (cat.categories || []).filter((c) => c.id !== id);
+      sanitizeCatalogScriptVersions(cat);
       await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `delete category: ${id}`, catSha, usePrivate);
     }
     await loadAllCatalogs();

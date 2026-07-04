@@ -1,4 +1,4 @@
-import { escapeHtml } from './common.js';
+import { escapeHtml, loadScriptVersion } from './common.js';
 import * as gh from './github-api.js';
 
 // ============================================================
@@ -195,6 +195,7 @@ async function renderStore() {
       btn.addEventListener('click', () => installPrivateScript(btn.dataset.file, btn.dataset.name, btn.dataset.id));
     });
     loadInstallStats(list);
+    loadVersions(list);
   }
 
   async function loadInstallStats(list) {
@@ -212,6 +213,20 @@ async function renderStore() {
     } catch { /* */ }
   }
 
+  async function loadVersions(list) {
+    const token = sessionStorage.getItem('private_token') || '';
+    const repoRaw = sessionStorage.getItem('private_repo') || '';
+    for (const s of list) {
+      try {
+        const version = await loadScriptVersion(s.file, { visibility: 'private', token, repoRaw });
+        if (version) {
+          const el = document.getElementById('grid').querySelector(`[data-version="${cssEscape(s.file)}"]`);
+          if (el) el.textContent = `v${version}`;
+        }
+      } catch { /* */ }
+    }
+  }
+
   function cardHtml(s) {
     const cat = (catalog.categories || []).find(c => c.id === s.category);
     const imgs = (s.images || []).filter(Boolean);
@@ -223,7 +238,7 @@ async function renderStore() {
             <h3 class="card-title">${escapeHtml(s.name)}</h3>
             <div class="card-meta">
               <span>${escapeHtml(cat?.icon || '')} ${escapeHtml(cat?.name || s.category)}</span>
-              <span>v${escapeHtml(s.version)}</span>
+              <span data-version="${escapeHtml(s.file)}"></span>
               <span>${escapeHtml(s.updatedAt || '')}</span>
             </div>
           </div>

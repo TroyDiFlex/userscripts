@@ -46,6 +46,61 @@ function cssEscape(s) {
   return String(s).replace(/["\\]/g, '\\$&');
 }
 
+function encGithubPath(path) {
+  return String(path).split('/').map(encodeURIComponent).join('/');
+}
+
+function base64ToUtf8(b64) {
+  const bin = atob(String(b64 || '').replace(/\n/g, ''));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+async function responseTextOrDecodedContent(res) {
+  const text = await res.text();
+  try {
+    const data = JSON.parse(text);
+    if (data && typeof data.content === 'string') return base64ToUtf8(data.content);
+  } catch { /* raw file response */ }
+  return text;
+}
+
+export function parseUserscriptVersion(text) {
+  const m = String(text || '').match(/^\s*\/\/\s*@version\s+([^\r\n]+)/m);
+  return m ? m[1].trim() : '';
+}
+
+export async function loadScriptVersion(filePath, { visibility = 'public', token = null, repoRaw = null } = {}) {
+  if (!filePath) return '';
+
+  let text = '';
+  if (visibility === 'private') {
+    const authToken = token ?? localStorage.getItem('gh_pat') ?? '';
+    const privateRepoRaw = repoRaw ?? localStorage.getItem('gh_private_repo') ?? '';
+    const [owner, name] = privateRepoRaw.split('/');
+    if (!authToken || !owner || !name) return '';
+
+    const res = await fetch(`https://api.github.com/repos/${owner}/${name}/contents/${encGithubPath(filePath)}?t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Accept': 'application/vnd.github.raw+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    });
+    if (!res.ok) return '';
+    text = await responseTextOrDecodedContent(res);
+  } else {
+    if (REPO.owner === 'GITHUB_USER') return '';
+    const res = await fetch(`${rawGithubUrl(filePath)}?t=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) return '';
+    text = await res.text();
+  }
+
+  return parseUserscriptVersion(text);
+}
+
 export function initStore({ visibility, mountEl, searchEl, filtersEl, emptyMsg = 'Скриптов пока нет' }) {
   let catalog = null;
   let activeCategory = 'all';
@@ -212,40 +267,9 @@ export function initStore({ visibility, mountEl, searchEl, filtersEl, emptyMsg =
   }
 
   async function loadVersions(list) {
-    if (REPO.owner === 'GITHUB_USER') return;
     for (const s of list) {
       try {
-        let version = '';
-        if ((s.visibility || 'public') === 'public') {
-          const res = await fetch(`https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/${s.file}`, { cache: 'no-store' });
-          if (res.ok) {
-            const text = await res.text();
-            const m = text.match(/\/\/\s*@version\s+([^\r\n]+)/);
-            if (m) version = m[1].trim();
-          }
-        } else {
-          const token = localStorage.getItem('gh_pat') || '';
-          const repoRaw = localStorage.getItem('gh_private_repo') || '';
-          const [owner, name] = repoRaw.split('/');
-          if (token && owner && name) {
-            const url = `https://api.github.com/repos/${owner}/${name}/contents/${s.file}`;
-            const res = await fetch(url, {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/vnd.github.raw+json',
-                'X-GitHub-Api-Version': '2022-11-28',
-              },
-            });
-            if (res.ok) {
-              const data = await res.json();
-              if (data.content) {
-                const text = atob(data.content);
-                const m = text.match(/\/\/\s*@version\s+([^\r\n]+)/);
-                if (m) version = m[1].trim();
-              }
-            }
-          }
-        }
+        const version = await loadScriptVersion(s.file, { visibility: s.visibility || 'public' });
         if (version) {
           const el = mountEl.querySelector(`[data-version="${cssEscape(s.file)}"]`);
           if (el) el.textContent = `v${version}`;
