@@ -493,11 +493,31 @@ function openScriptModal(id) {
   const dzImg = back.querySelector('#dz-img');
   const thumbsBox = back.querySelector('#thumbs');
   function thumbExisting(src, i) {
-    return `<div class="thumb" data-existing="${escapeHtml(src)}"><img src="${escapeHtml(src)}" alt=""><button type="button" aria-label="Удалить">✕</button></div>`;
+    return `<div class="thumb" data-existing="${escapeHtml(src)}"><img src="${escapeHtml(src)}" alt=""><div class="thumb-actions"><button type="button" data-move="-1" aria-label="Раньше" title="Раньше" ${i <= 0 ? 'disabled' : ''}>&larr;</button><button type="button" data-move="1" aria-label="Позже" title="Позже" ${i >= s.images.length - 1 ? 'disabled' : ''}>&rarr;</button><button type="button" class="thumb-remove" data-remove aria-label="Удалить">✕</button></div></div>`;
+  }
+  function thumbPending(it, idx) {
+    return `<div class="thumb" data-pending="${idx}"><img src="${escapeHtml(it.dataUrl)}" alt=""><div class="thumb-actions"><button type="button" class="thumb-remove" data-remove aria-label="Удалить">✕</button></div></div>`;
+  }
+  function renderThumbs() {
+    thumbsBox.innerHTML = s.images.map((src, i) => thumbExisting(src, i)).join('')
+      + pendingImages.map((it, idx) => it ? thumbPending(it, idx) : '').join('');
   }
   thumbsBox.addEventListener('click', (e) => {
-    if (e.target.tagName === 'BUTTON') {
-      const card = e.target.parentElement;
+    const btn = e.target.closest('button');
+    if (!btn || !thumbsBox.contains(btn)) return;
+    const card = btn.closest('.thumb');
+    if (!card) return;
+
+    if (btn.dataset.move && card.dataset.existing) {
+      const from = s.images.indexOf(card.dataset.existing);
+      const to = from + Number(btn.dataset.move);
+      if (from < 0 || to < 0 || to >= s.images.length) return;
+      [s.images[from], s.images[to]] = [s.images[to], s.images[from]];
+      renderThumbs();
+      return;
+    }
+
+    if (btn.dataset.remove !== undefined) {
       if (card.dataset.existing) {
         removedImages.push(card.dataset.existing);
         s.images = s.images.filter((x) => x !== card.dataset.existing);
@@ -505,7 +525,7 @@ function openScriptModal(id) {
         const idx = parseInt(card.dataset.pending);
         pendingImages[idx] = null;
       }
-      card.remove();
+      renderThumbs();
     }
   });
   setupDropzone(dzImg, 'image/*', true, (files) => {
@@ -514,7 +534,7 @@ function openScriptModal(id) {
       reader.onload = () => {
         const idx = pendingImages.length;
         pendingImages.push({ file: f, name: f.name, dataUrl: reader.result });
-        thumbsBox.insertAdjacentHTML('beforeend', `<div class="thumb" data-pending="${idx}"><img src="${reader.result}" alt=""><button type="button" aria-label="Удалить">✕</button></div>`);
+        renderThumbs();
       };
       reader.readAsDataURL(f);
     }
