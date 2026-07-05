@@ -1,4 +1,4 @@
-import { escapeHtml, loadScriptVersion } from './common.js';
+import { escapeHtml, loadScriptVersion, openImagePreview } from './common.js';
 import * as gh from './github-api.js';
 
 // ============================================================
@@ -333,6 +333,13 @@ async function renderStore() {
     const btnNext = el.querySelector('.carousel-btn-next');
     if (!track) return;
     const imgCount = track.querySelectorAll('img').length;
+    track.querySelectorAll('img').forEach((img) => {
+      img.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openImagePreview(img.currentSrc || img.src);
+      });
+    });
     if (imgCount <= 1) return;
     let i = 0;
     function go(n) {

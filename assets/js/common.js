@@ -42,6 +42,16 @@ export function escapeHtml(s) {
   }[c]));
 }
 
+export function openImagePreview(src) {
+  document.querySelector('.image-preview-back')?.remove();
+  const back = document.createElement('div');
+  back.className = 'image-preview-back';
+  back.innerHTML = `<img src="${escapeHtml(src)}" alt="">`;
+  back.addEventListener('click', () => back.remove());
+  back.querySelector('img').addEventListener('click', (e) => e.stopPropagation());
+  document.body.appendChild(back);
+}
+
 function cssEscape(s) {
   return String(s).replace(/["\\]/g, '\\$&');
 }
@@ -225,6 +235,13 @@ export function initStore({ visibility, mountEl, searchEl, filtersEl, emptyMsg =
     const btnNext = el.querySelector('.carousel-btn-next');
     if (!track) return;
     const imgCount = track.querySelectorAll('img').length;
+    track.querySelectorAll('img').forEach((img) => {
+      img.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openImagePreview(img.currentSrc || img.src);
+      });
+    });
     if (imgCount <= 1) return;
     let i = 0;
     function go(n) {
