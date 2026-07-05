@@ -122,7 +122,7 @@
 }
 
 .image-preview-back { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 24px; background: rgba(0,0,0,0.38); backdrop-filter: blur(10px); cursor: zoom-out; }
-.image-preview-back img { max-width: min(760px, 56vw); max-height: 76vh; border-radius: var(--radius); box-shadow: var(--shadow-lg); object-fit: contain; cursor: default; }
+.image-preview-back img { max-width: min(988px, 73vw); max-height: 76vh; border-radius: var(--radius); box-shadow: var(--shadow-lg); object-fit: contain; cursor: default; }
 
 @media (max-width: 768px) {
   .image-preview-back img { max-width: 92vw; max-height: 70vh; }
