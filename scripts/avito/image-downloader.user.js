@@ -10,6 +10,8 @@
 // @updateURL    https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/scripts/avito/image-downloader.user.js
 // @downloadURL  https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/scripts/avito/image-downloader.user.js
 // @grant        GM_download
+// @grant        GM_setValue
+// @grant        GM_getValue
 // @connect      *
 // @run-at       document-idle
 // ==/UserScript==
@@ -26,6 +28,7 @@
     images: [],
     selected: new Set(),
     panelOpen: false,
+    alwaysOpen: Boolean(Number(GM_getValue('alwaysOpen', 0))),
     themeDark: window.matchMedia('(prefers-color-scheme: dark)').matches
   };
 
@@ -49,6 +52,9 @@
 
   injectStyles();
   mountUI();
+  if (STATE.alwaysOpen) {
+    STATE.panelOpen = true;
+  }
   refreshImages();
 
   const mutationObserver = new MutationObserver(debounce(() => {
@@ -198,6 +204,47 @@
 
       #${IDS.panel}.tm-open {
         display: block;
+      }
+
+      .tm-switch {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        font-size: 12px;
+        color: var(--tm-fg-soft);
+        user-select: none;
+        margin-bottom: 10px;
+        padding: 0 2px;
+      }
+      .tm-switch input {
+        display: none;
+      }
+      .tm-switch-track {
+        width: 38px;
+        height: 22px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.12);
+        transition: background 0.18s ease;
+        position: relative;
+        flex-shrink: 0;
+      }
+      .tm-switch-track::after {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #fff;
+        transition: transform 0.18s ease;
+      }
+      .tm-switch input:checked + .tm-switch-track {
+        background: var(--tm-accent);
+      }
+      .tm-switch input:checked + .tm-switch-track::after {
+        transform: translateX(16px);
       }
 
       .tm-toolbar {
@@ -368,6 +415,11 @@
         <span id="${IDS.counter}">0</span>
       </button>
       <div id="${IDS.panel}" aria-hidden="true">
+        <label class="tm-switch" title="Всегда развёрнуто" aria-label="Всегда развёрнуто">
+          <input type="checkbox" data-action="toggle-always-open" ${STATE.alwaysOpen ? 'checked' : ''}>
+          <span class="tm-switch-track"></span>
+          Всегда открыто
+        </label>
         <div class="tm-toolbar">
           <div class="tm-toolbar-left">
             <button class="tm-btn" type="button" data-action="refresh" title="Обновить" aria-label="Обновить">${ICONS.refresh}</button>
@@ -417,6 +469,14 @@
         toggleOne(actionTarget.getAttribute('data-id'));
       } else if (action === 'download-one') {
         downloadOne(actionTarget.getAttribute('data-id'));
+      } else if (action === 'toggle-always-open') {
+        STATE.alwaysOpen = actionTarget.checked;
+        GM_setValue('alwaysOpen', STATE.alwaysOpen ? '1' : '0');
+        STATE.panelOpen = STATE.alwaysOpen;
+        if (STATE.alwaysOpen) {
+          refreshImages();
+        }
+        render();
       }
     });
   }
