@@ -1,3 +1,4 @@
+// Админка Script Store. Версия: 1.1 (2026-07-08)
 import { loadCatalog, loadPrivateCatalog, escapeHtml, loadScriptVersion } from './common.js';
 import * as gh from './github-api.js';
 import { getInstallStats, clearStatsCache } from './stats.js';
@@ -23,6 +24,26 @@ async function loadCatalogFile(usePrivate = false) {
     return { sha, cat };
   } catch {
     return { sha: null, cat: { ...empty } };
+  }
+}
+
+// Сохраняет catalog.json с автоповтором при 409 (SHA-конфликт).
+// changeFn получает cat и должна его изменить. Возвращает итоговый каталог.
+async function saveCatalogWithRetry(usePrivate, changeFn, commitMsg, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const { sha, cat } = await loadCatalogFile(usePrivate);
+    changeFn(cat);
+    sanitizeCatalogScriptVersions(cat);
+    try {
+      await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), commitMsg, sha, usePrivate);
+      return;
+    } catch (e) {
+      if (e.status === 409 && attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 500 * attempt));
+        continue;
+      }
+      throw e;
+    }
   }
 }
 
@@ -317,15 +338,13 @@ async function saveScriptOrder() {
         .filter((s) => (s.visibility || 'public') === visibility)
         .map((s) => s.id);
       const order = new Map(orderedIds.map((id, index) => [id, index]));
-      const { sha: catSha, cat } = await loadCatalogFile(usePrivate);
-      cat.scripts = (cat.scripts || []).slice().sort((a, b) => {
-        const ai = order.has(a.id) ? order.get(a.id) : Number.MAX_SAFE_INTEGER;
-        const bi = order.has(b.id) ? order.get(b.id) : Number.MAX_SAFE_INTEGER;
-        return ai - bi;
-      });
-
-      sanitizeCatalogScriptVersions(cat);
-      await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `reorder ${visibility} scripts`, catSha, usePrivate);
+      await saveCatalogWithRetry(usePrivate, (cat) => {
+        cat.scripts = (cat.scripts || []).slice().sort((a, b) => {
+          const ai = order.has(a.id) ? order.get(a.id) : Number.MAX_SAFE_INTEGER;
+          const bi = order.has(b.id) ? order.get(b.id) : Number.MAX_SAFE_INTEGER;
+          return ai - bi;
+        });
+      }, `reorder ${visibility} scripts`);
     }
 
     await loadAllCatalogs();
@@ -605,24 +624,19 @@ function openScriptModal(id) {
       delete scriptForCatalog.visibility; // visibility не хранится в catalog.json
       delete scriptForCatalog.version;
 
-      const { sha: catSha, cat } = await loadCatalogFile(isPrivate);
-      const idx = cat.scripts.findIndex((x) => x.id === s.id);
-      if (idx >= 0) cat.scripts[idx] = scriptForCatalog; else cat.scripts.push(scriptForCatalog);
-      // Убеждаемся что категории синхронизированы
       const allCats = state.catalog.categories || [];
-      cat.categories = allCats;
-      sanitizeCatalogScriptVersions(cat);
-      await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `${editing ? 'update' : 'add'} script: ${s.id}`, catSha, isPrivate);
+      await saveCatalogWithRetry(isPrivate, (cat) => {
+        const idx = cat.scripts.findIndex((x) => x.id === s.id);
+        if (idx >= 0) cat.scripts[idx] = scriptForCatalog; else cat.scripts.push(scriptForCatalog);
+        cat.categories = allCats;
+      }, `${editing ? 'update' : 'add'} script: ${s.id}`);
 
       // 5) Если менялась видимость — удалить из старого catalog.json
       if (visibilityChanged) {
         const oldPrivate = wasPrivate;
-        const { sha: oldCatSha, cat: oldCat } = await loadCatalogFile(oldPrivate);
-        if (oldCatSha) {
+        await saveCatalogWithRetry(oldPrivate, (oldCat) => {
           oldCat.scripts = (oldCat.scripts || []).filter((x) => x.id !== s.id);
-          sanitizeCatalogScriptVersions(oldCat);
-          await gh.putFileText(CATALOG_PATH, JSON.stringify(oldCat, null, 2), `remove script (moved): ${s.id}`, oldCatSha, oldPrivate);
-        }
+        }, `remove script (moved): ${s.id}`);
       }
 
       // 6) Обновить локальный state
@@ -661,10 +675,9 @@ async function deleteScript(id) {
       try { const sha = await gh.getSha(p, isPrivate); if (sha) await gh.deleteFile(p, sha, `delete image: ${p}`, isPrivate); } catch { /* */ }
     }
     // Обновить catalog.json
-    const { sha: catSha, cat } = await loadCatalogFile(isPrivate);
-    cat.scripts = (cat.scripts || []).filter((x) => x.id !== id);
-    sanitizeCatalogScriptVersions(cat);
-    await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `delete script: ${id}`, catSha, isPrivate);
+    await saveCatalogWithRetry(isPrivate, (cat) => {
+      cat.scripts = (cat.scripts || []).filter((x) => x.id !== id);
+    }, `delete script: ${id}`);
     await loadAllCatalogs();
     toast('Удалено');
     renderTab();
@@ -740,13 +753,11 @@ function openCategoryModal(id) {
       // Сохраняем категорию в ОБА каталога
       for (const usePrivate of [false, true]) {
         if (usePrivate && !gh.hasPrivateRepo()) continue;
-        const { sha: catSha, cat } = await loadCatalogFile(usePrivate);
-        if (!catSha && usePrivate) continue; // приватный каталог ещё не создан — пропускаем
-        cat.categories = cat.categories || [];
-        const idx = cat.categories.findIndex((x) => x.id === c.id);
-        if (idx >= 0) cat.categories[idx] = c; else cat.categories.push(c);
-        sanitizeCatalogScriptVersions(cat);
-        await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `${editing ? 'update' : 'add'} category: ${c.id}`, catSha, usePrivate);
+        await saveCatalogWithRetry(usePrivate, (cat) => {
+          cat.categories = cat.categories || [];
+          const idx = cat.categories.findIndex((x) => x.id === c.id);
+          if (idx >= 0) cat.categories[idx] = c; else cat.categories.push(c);
+        }, `${editing ? 'update' : 'add'} category: ${c.id}`);
       }
       await loadAllCatalogs();
       toast('Сохранено');
@@ -761,11 +772,9 @@ async function deleteCategory(id) {
   try {
     for (const usePrivate of [false, true]) {
       if (usePrivate && !gh.hasPrivateRepo()) continue;
-      const { sha: catSha, cat } = await loadCatalogFile(usePrivate);
-      if (!catSha) continue;
-      cat.categories = (cat.categories || []).filter((c) => c.id !== id);
-      sanitizeCatalogScriptVersions(cat);
-      await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), `delete category: ${id}`, catSha, usePrivate);
+      await saveCatalogWithRetry(usePrivate, (cat) => {
+        cat.categories = (cat.categories || []).filter((c) => c.id !== id);
+      }, `delete category: ${id}`);
     }
     await loadAllCatalogs();
     toast('Удалено');
