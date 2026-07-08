@@ -12,19 +12,15 @@ const CATALOG_PATH = 'catalog.json';
 // content — через getFile. Если файла нет — возвращает { sha: null, cat: defaultCat }.
 async function loadCatalogFile(usePrivate = false) {
   const empty = { version: 1, scripts: [], categories: [] };
-  try {
-    // Сначала получаем sha через listing директории (надёжно, без загрузки контента)
-    const sha = await gh.getSha(CATALOG_PATH, usePrivate);
-    if (!sha) return { sha: null, cat: { ...empty } };
+  const sha = await gh.getSha(CATALOG_PATH, usePrivate);
+  if (!sha) return { sha: null, cat: { ...empty } };
 
-    // Теперь загружаем содержимое
-    const file = await gh.getFile(CATALOG_PATH, usePrivate);
-    if (!file || !file.content) return { sha, cat: { ...empty } };
-    const cat = JSON.parse(file.content);
-    return { sha, cat };
-  } catch {
-    return { sha: null, cat: { ...empty } };
-  }
+  const file = await gh.getFile(CATALOG_PATH, usePrivate);
+  // Если файл существует (sha есть), но контент не загрузился — НЕ подменяем на пустой каталог.
+  // Иначе saveCatalogWithRetry перезапишет реальные данные пустышкой.
+  if (!file || !file.content) throw new Error('Не удалось загрузить содержимое catalog.json');
+  const cat = JSON.parse(file.content);
+  return { sha, cat };
 }
 
 // Сохраняет catalog.json с автоповтором при 409 (SHA-конфликт).
