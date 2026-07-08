@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBay + Avito — скачивание фото
 // @namespace    http://tampermonkey.net/
-// @version      1.6
+// @version      1.7
 // @description  Компактный виджет для выбора и скачивания фотографий со страниц товаров eBay и объявлений Авито.
 // @author       TroyDiFlex
 // @match        *://www.ebay.com/*
@@ -49,7 +49,7 @@
     close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.29 19.7 2.88 18.3 9.17 12 2.88 5.71 4.29 4.29l6.3 6.3 6.29-6.3z"/></svg>',
     check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.55 16.6-3.9-3.9-1.4 1.4 5.3 5.3L20 8.95l-1.4-1.4z"/></svg>',
     selectAll: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2zm0 2v14h14V5H5zm11.6 4.4L11 15l-3.1-3.1 1.4-1.4 1.7 1.7 4.2-4.2 1.4 1.4z"/></svg>',
-    refresh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-6-6v5L7 6l5-5v4a8 8 0 0 1 5.65 13.35z"/></svg>',
+    refresh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>',
     pin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>'
   };
 
@@ -261,6 +261,12 @@
         background: var(--tm-accent-strong);
       }
 
+      .tm-btn.tm-pin-active {
+        border-color: rgba(168, 85, 247, 0.48);
+        background: var(--tm-accent-soft);
+        color: var(--tm-accent);
+      }
+
       .tm-btn.tm-danger {
         color: var(--tm-danger);
       }
@@ -385,7 +391,7 @@
         <div class="tm-toolbar">
           <div class="tm-toolbar-left">
             <button class="tm-btn" type="button" data-action="refresh" title="Обновить" aria-label="Обновить">${ICONS.refresh}</button>
-            <button class="tm-btn" type="button" data-action="toggle-always-open" title="Закрепить панель" aria-label="Закрепить панель">${ICONS.pin}</button>
+            <button class="tm-btn${STATE.alwaysOpen ? ' tm-pin-active' : ''}" type="button" data-action="toggle-always-open" title="Закрепить панель" aria-label="Закрепить панель">${ICONS.pin}</button>
           </div>
           <div class="tm-toolbar-right">
             <button class="tm-btn tm-danger" type="button" data-action="close" title="Закрыть" aria-label="Закрыть">${ICONS.close}</button>
@@ -436,6 +442,7 @@
         STATE.alwaysOpen = !STATE.alwaysOpen;
         GM_setValue('alwaysOpen', STATE.alwaysOpen ? '1' : '0');
         const btn = actionTarget;
+        btn.classList.toggle('tm-pin-active', STATE.alwaysOpen);
         btn.title = STATE.alwaysOpen ? 'Открепить панель' : 'Закрепить панель';
         btn.setAttribute('aria-label', btn.title);
       }
