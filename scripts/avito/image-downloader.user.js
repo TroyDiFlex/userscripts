@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBay + Avito — скачивание фото
 // @namespace    http://tampermonkey.net/
-// @version      1.7
+// @version      1.8
 // @description  Компактный виджет для выбора и скачивания фотографий со страниц товаров eBay и объявлений Авито.
 // @author       TroyDiFlex
 // @match        *://www.ebay.com/*
@@ -390,8 +390,8 @@
       <div id="${IDS.panel}" aria-hidden="true">
         <div class="tm-toolbar">
           <div class="tm-toolbar-left">
-            <button class="tm-btn" type="button" data-action="refresh" title="Обновить" aria-label="Обновить">${ICONS.refresh}</button>
             <button class="tm-btn${STATE.alwaysOpen ? ' tm-pin-active' : ''}" type="button" data-action="toggle-always-open" title="Закрепить панель" aria-label="Закрепить панель">${ICONS.pin}</button>
+            <button class="tm-btn" type="button" data-action="refresh" title="Обновить" aria-label="Обновить">${ICONS.refresh}</button>
           </div>
           <div class="tm-toolbar-right">
             <button class="tm-btn tm-danger" type="button" data-action="close" title="Закрыть" aria-label="Закрыть">${ICONS.close}</button>
