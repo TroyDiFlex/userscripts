@@ -28,7 +28,7 @@
       "category": "avito",
       "file": "scripts/avito/wordstat.user.js",
       "icon": "📈",
-      "color": "#00B894",
+      "color": "#0a84ff",
       "images": [
         "images/scripts/wordstat-1783168291149-0.png",
         "images/scripts/wordstat-1783168293039-1.png"
@@ -40,7 +40,7 @@
         "аналитика"
       ],
       "installCount": 0,
-      "updatedAt": "2026-07-04"
+      "updatedAt": "2026-07-08"
     },
     {
       "id": "image-downloader",
