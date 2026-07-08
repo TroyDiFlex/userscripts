@@ -126,8 +126,10 @@ function updatePublishButton() {
   const btn = document.getElementById('publish-btn');
   if (!btn) return;
   const dirty = isDraftDirty();
-  btn.textContent = publishBtnLabel();
+  const n = state.draft?.changeCount || 0;
   btn.disabled = !dirty;
+  btn.dataset.dirty = dirty ? '1' : '';
+  btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>${dirty ? `Опубликовать (${n})` : 'Опубликовать'}`;
 }
 
 // Предупреждение при закрытии вкладки с несохранёнными изменениями
@@ -293,10 +295,10 @@ function renderApp() {
       <aside class="sidebar">
         <div class="sidebar-logo"><span class="sidebar-logo-mark">⚡</span><span>Script Store</span></div>
         <nav class="nav">
-          ${navItem('scripts',    '📜', 'Скрипты')}
-          ${navItem('categories', '🗂', 'Категории')}
-          ${navItem('stats',      '📊', 'Статистика')}
-          ${navItem('settings',   '⚙️', 'Настройки')}
+          ${navItem('scripts',    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>', 'Скрипты')}
+          ${navItem('categories', '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>', 'Категории')}
+          ${navItem('stats',      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>', 'Статистика')}
+          ${navItem('settings',   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>', 'Настройки')}
         </nav>
         <div class="sidebar-foot">
           <a href="index.html" target="_blank">Открыть магазин ↗</a><br>
@@ -311,7 +313,10 @@ function renderApp() {
             ${hasPrivate ? `<span style="margin-left:8px;opacity:.6;font-size:12px">+ приватный</span>` : ''}
           </div>
           <div class="topbar-actions">
-            <button id="publish-btn" class="btn btn-publish" ${dirty ? '' : 'disabled'}>${publishBtnLabel()}</button>
+            <button id="publish-btn" class="btn-publish" ${dirty ? 'data-dirty="1"' : ''} ${dirty ? '' : 'disabled'}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+              ${dirty ? `Опубликовать (${state.draft.changeCount})` : 'Опубликовать'}
+            </button>
             <button id="logout" class="btn-logout">Выйти</button>
           </div>
         </div>
@@ -802,7 +807,8 @@ function renderCategories(el) {
         <tbody>
           ${cats.length ? cats.map((c) => {
             const count = (state.catalog.scripts || []).filter((s) => s.category === c.id).length;
-            const inGithub = state.publicCatalog?.categories?.some(x => x.id === c.id);
+            const inGithub = state.publicCatalog?.categories?.some(x => x.id === c.id)
+                          || state.privateCatalog?.categories?.some(x => x.id === c.id);
             const draftBadge = !inGithub ? ' <span style="font-size:11px;opacity:.6">(черновик)</span>' : '';
             return `<tr>
               <td style="font-size:20px">${escapeHtml(c.icon)}</td>
