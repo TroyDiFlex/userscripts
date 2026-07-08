@@ -8,7 +8,7 @@
       "category": "avito",
       "file": "scripts/avito/price-helper.user.js",
       "icon": "🏷️",
-      "color": "#FF6B35",
+      "color": "#2ecc40",
       "images": [
         "images/scripts/price-helper-1781820616880-1.png",
         "images/scripts/price-helper-1781820614146-0.png"
@@ -19,7 +19,7 @@
         "конкуренты"
       ],
       "installCount": 0,
-      "updatedAt": "2026-07-04"
+      "updatedAt": "2026-07-08"
     },
     {
       "id": "wordstat",
