@@ -518,9 +518,17 @@ function openScriptModal(id) {
         <div class="field-row">
           <div class="field">
             <label>Категория</label>
-            <select class="select" data-f="category">
-              ${(state.catalog.categories || []).map((c) => `<option value="${escapeHtml(c.id)}" ${c.id === s.category ? 'selected' : ''}>${escapeHtml(c.icon)} ${escapeHtml(c.name)}</option>`).join('')}
-            </select>
+            <div class="cselect" id="cat-drop">
+              <input type="hidden" data-f="category" value="${escapeHtml(s.category || '')}">
+              <button type="button" class="cselect-trigger" id="cat-trigger">
+                <span id="cat-label">${s.category ? (() => { const c = (state.catalog.categories||[]).find(x=>x.id===s.category); return c ? escapeHtml(c.icon)+' '+escapeHtml(c.name) : escapeHtml(s.category); })() : '— Без категории —'}</span>
+                <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              </button>
+              <div class="cselect-menu" id="cat-menu" hidden>
+                <div class="cselect-option" data-val="">— Без категории —</div>
+                ${(state.catalog.categories||[]).map(c=>`<div class="cselect-option" data-val="${escapeHtml(c.id)}">${escapeHtml(c.icon)} ${escapeHtml(c.name)}</div>`).join('')}
+              </div>
+            </div>
           </div>
           <div class="field">
             <label>Видимость</label>
@@ -592,6 +600,34 @@ function openScriptModal(id) {
   back.querySelectorAll('[data-f]').forEach((inp) => {
     inp.addEventListener('input', () => { s[inp.dataset.f] = inp.value; });
   });
+
+  // Кастомный dropdown для категории
+  const catDrop    = back.querySelector('#cat-drop');
+  const catTrigger = back.querySelector('#cat-trigger');
+  const catMenu    = back.querySelector('#cat-menu');
+  const catLabel   = back.querySelector('#cat-label');
+  const catInput   = back.querySelector('input[data-f="category"]');
+  if (catDrop && catTrigger) {
+    // Пометить текущую опцию
+    catMenu.querySelectorAll('.cselect-option').forEach(o => o.classList.toggle('selected', o.dataset.val === (s.category || '')));
+    catTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = catDrop.classList.toggle('open');
+      catMenu.hidden = !open;
+    });
+    catMenu.querySelectorAll('.cselect-option').forEach(o => o.addEventListener('click', () => {
+      const val = o.dataset.val;
+      catInput.value = val;
+      s.category = val;
+      catLabel.textContent = o.textContent;
+      catMenu.querySelectorAll('.cselect-option').forEach(x => x.classList.toggle('selected', x === o));
+      catDrop.classList.remove('open');
+      catMenu.hidden = true;
+    }));
+    document.addEventListener('click', function closeOnOut(e) {
+      if (!catDrop.contains(e.target)) { catDrop.classList.remove('open'); catMenu.hidden = true; document.removeEventListener('click', closeOnOut); }
+    });
+  }
 
   // Chips
   const chipsBox = back.querySelector('#chips');
