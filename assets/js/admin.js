@@ -1,4 +1,4 @@
-﻿// Админка Script Store. Версия: 1.3 (2026-07-08)
+﻿// Админка Script Store. Версия: 1.4 (2026-07-08)
 import { loadCatalog, loadPrivateCatalog, escapeHtml, loadScriptVersion } from './common.js';
 import * as gh from './github-api.js';
 import { getInstallStats, clearStatsCache } from './stats.js';
@@ -8,36 +8,23 @@ const toasts = document.getElementById('toasts');
 
 const CATALOG_PATH = 'catalog.json';
 
-// Надёжно загружает catalog.json: sha берётся через directory listing,
-// content — через getFile.
-// БЕЗОПАСНОСТЬ: если SHA получен, но контент недоступен — кидаем ошибку (не пишем пустышку).
-// Только если файл реально не существует (sha=null И getFile=null) — возвращаем пустой каталог.
+// Загружает catalog.json одним запросом через getFile.
+// SHA и контент берутся из одного ответа GitHub API — нет race condition.
+// Если файл не существует (404) — возвращает { sha: null, cat: defaultCat }.
+// Если файл есть, но контент недоступен (> 1MB) — кидает ошибку вместо пустышки.
 async function loadCatalogFile(usePrivate = false) {
   const empty = { version: 1, scripts: [], categories: [] };
 
-  // Шаг 1: пробуем получить SHA через directory listing
-  const sha = await gh.getSha(CATALOG_PATH, usePrivate);
-
-  // Шаг 2: если SHA не получен — пробуем getFile напрямую (fallback)
-  if (!sha) {
-    const file = await gh.getFile(CATALOG_PATH, usePrivate);
-    if (!file) {
-      // Файл реально не существует — это новый репо, возвращаем пустой каталог
-      return { sha: null, cat: { ...empty } };
-    }
-    // Файл существует но SHA не удалось получить через listing — используем SHA из getFile
-    if (!file.content) throw new Error('Не удалось загрузить содержимое catalog.json (файл есть, контент недоступен)');
-    const cat = JSON.parse(file.content);
-    return { sha: file.sha, cat };
-  }
-
-  // Шаг 3: SHA получен, загружаем контент
   const file = await gh.getFile(CATALOG_PATH, usePrivate);
-  // Если файл существует (sha есть), но контент не загрузился — НЕ подменяем на пустой каталог.
-  // Иначе saveCatalogWithRetry перезапишет реальные данные пустышкой.
-  if (!file || !file.content) throw new Error('Не удалось загрузить содержимое catalog.json (sha=' + sha + ')');
+
+  // Файл не существует — новый репо, каталог будет создан
+  if (!file) return { sha: null, cat: { ...empty } };
+
+  // Файл есть, но контент недоступен (слишком большой?) — НЕ подменяем пустышкой
+  if (!file.content) throw new Error('Не удалось загрузить содержимое catalog.json (файл слишком большой?)');
+
   const cat = JSON.parse(file.content);
-  return { sha, cat };
+  return { sha: file.sha, cat };
 }
 
 // Сохраняет catalog.json с автоповтором при 409 (SHA-конфликт).
