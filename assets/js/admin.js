@@ -1,4 +1,4 @@
-﻿// Админка Script Store. Версия: 1.2 (2026-07-08)
+﻿// Админка Script Store. Версия: 1.3 (2026-07-08)
 import { loadCatalog, loadPrivateCatalog, escapeHtml, loadScriptVersion } from './common.js';
 import * as gh from './github-api.js';
 import { getInstallStats, clearStatsCache } from './stats.js';
@@ -761,15 +761,12 @@ function openCategoryModal(id) {
     if (!c.id || !c.name) { toast('Заполните поля', 'error'); return; }
     const btn = back.querySelector('#c-save'); btn.dataset.loading = '1'; btn.textContent = 'Сохраняю…';
     try {
-      // Сохраняем категорию в ОБА каталога
-      for (const usePrivate of [false, true]) {
-        if (usePrivate && !gh.hasPrivateRepo()) continue;
-        await saveCatalogWithRetry(usePrivate, (cat) => {
-          cat.categories = cat.categories || [];
-          const idx = cat.categories.findIndex((x) => x.id === c.id);
-          if (idx >= 0) cat.categories[idx] = c; else cat.categories.push(c);
-        }, `${editing ? 'update' : 'add'} category: ${c.id}`);
-      }
+      // Категории хранятся только в публичном репо — приватный репо не трогаем
+      await saveCatalogWithRetry(false, (cat) => {
+        cat.categories = cat.categories || [];
+        const idx = cat.categories.findIndex((x) => x.id === c.id);
+        if (idx >= 0) cat.categories[idx] = c; else cat.categories.push(c);
+      }, `${editing ? 'update' : 'add'} category: ${c.id}`);
       await loadAllCatalogs();
       toast('Сохранено');
       close();
@@ -781,12 +778,10 @@ function openCategoryModal(id) {
 async function deleteCategory(id) {
   if (!confirm('Удалить категорию?')) return;
   try {
-    for (const usePrivate of [false, true]) {
-      if (usePrivate && !gh.hasPrivateRepo()) continue;
-      await saveCatalogWithRetry(usePrivate, (cat) => {
-        cat.categories = (cat.categories || []).filter((c) => c.id !== id);
-      }, `delete category: ${id}`);
-    }
+    // Категории хранятся только в публичном репо — приватный репо не трогаем
+    await saveCatalogWithRetry(false, (cat) => {
+      cat.categories = (cat.categories || []).filter((c) => c.id !== id);
+    }, `delete category: ${id}`);
     await loadAllCatalogs();
     toast('Удалено');
     renderTab();
