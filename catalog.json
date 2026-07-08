@@ -5,7 +5,7 @@
       "id": "price-helper",
       "name": "Помощник актуализации цен Авито",
       "description": "Анализирует первые 8 объявлений конкурентов, подсвечивает лучшие цены, и считает рекомендуемую цену.",
-      "category": "test",
+      "category": "avito",
       "file": "dist/price-helper.user.js",
       "icon": "🏷️",
       "color": "#f33520",
@@ -133,20 +133,5 @@
       "name": "TecAlliance",
       "icon": "🔧"
     },
-    {
-      "id": "steam",
-      "name": "Steam",
-      "icon": "🎮"
-    },
-    {
-      "id": "internal",
-      "name": "Внутренние",
-      "icon": "🔒"
-    },
-    {
-      "id": "test5",
-      "name": "Тест5",
-      "icon": "📂"
-    }
   ]
 }
