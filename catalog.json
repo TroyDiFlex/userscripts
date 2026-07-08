@@ -6,7 +6,7 @@
       "name": "Помощник актуализации цен Авито",
       "description": "Анализирует первые 8 объявлений конкурентов, подсвечивает лучшие цены, и считает рекомендуемую цену.",
       "category": "avito",
-      "file": "scripts/avito/price-helper.user.js",
+      "file": "dist/price-helper.user.js",
       "icon": "🏷️",
       "color": "#f33520",
       "images": [
@@ -26,7 +26,7 @@
       "name": "Avito Автопарсер статистики запросов",
       "description": "Автоматически перебирает артикулы и собирает статистику спроса с Авито Wordstat.",
       "category": "avito",
-      "file": "scripts/avito/wordstat.user.js",
+      "file": "dist/wordstat.user.js",
       "icon": "📈",
       "color": "#0a84ff",
       "images": [
@@ -69,7 +69,7 @@
       "name": "TecAlliance — Скопировать номера",
       "description": "Быстрое копирование артикулов из TecAlliance одной кнопкой.",
       "category": "tecalliance",
-      "file": "scripts/tecalliance/copy-numbers.user.js",
+      "file": "dist/copy-numbers.user.js",
       "icon": "🔢",
       "color": "#0984E3",
       "images": [
@@ -88,7 +88,7 @@
       "name": "TecAlliance — Скопировать применимость",
       "description": "Копирует данные применимости из TecAlliance в буфер обмена.",
       "category": "tecalliance",
-      "file": "scripts/tecalliance/copy-applicability.user.js",
+      "file": "dist/copy-applicability.user.js",
       "icon": "📋",
       "color": "#0984E3",
       "images": [
