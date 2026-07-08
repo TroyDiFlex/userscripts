@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBay + Avito — скачивание фото
 // @namespace    http://tampermonkey.net/
-// @version      1.5
+// @version      1.6
 // @description  Компактный виджет для выбора и скачивания фотографий со страниц товаров eBay и объявлений Авито.
 // @author       TroyDiFlex
 // @match        *://www.ebay.com/*
@@ -19,8 +19,10 @@
 (function () {
   'use strict';
 
+  const DEBUG_MODE = false;
+
   const SITE = detectSite();
-  if (!SITE) {
+  if (!SITE && !DEBUG_MODE) {
     return;
   }
 
@@ -47,15 +49,17 @@
     close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.29 19.7 2.88 18.3 9.17 12 2.88 5.71 4.29 4.29l6.3 6.3 6.29-6.3z"/></svg>',
     check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.55 16.6-3.9-3.9-1.4 1.4 5.3 5.3L20 8.95l-1.4-1.4z"/></svg>',
     selectAll: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2zm0 2v14h14V5H5zm11.6 4.4L11 15l-3.1-3.1 1.4-1.4 1.7 1.7 4.2-4.2 1.4 1.4z"/></svg>',
-    refresh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7a5 5 0 1 1-4.9 6.02H5.02A7 7 0 1 0 17.65 6.35z"/></svg>'
+    refresh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-6-6v5L7 6l5-5v4a8 8 0 0 1 5.65 13.35z"/></svg>',
+    pin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>'
   };
 
   injectStyles();
   mountUI();
-  if (STATE.alwaysOpen) {
-    STATE.panelOpen = true;
-  }
   refreshImages();
+  if (STATE.alwaysOpen && STATE.images.length) {
+    STATE.panelOpen = true;
+    render();
+  }
 
   const mutationObserver = new MutationObserver(debounce(() => {
     if (STATE.panelOpen) {
@@ -202,49 +206,12 @@
         overflow: hidden;
       }
 
-      #${IDS.panel}.tm-open {
-        display: block;
-      }
-
-      .tm-switch {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        cursor: pointer;
-        font-size: 12px;
-        color: var(--tm-fg-soft);
-        user-select: none;
-        margin-bottom: 10px;
-        padding: 0 2px;
-      }
-      .tm-switch input {
+      #${IDS.root}.tm-hidden {
         display: none;
       }
-      .tm-switch-track {
-        width: 38px;
-        height: 22px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.12);
-        transition: background 0.18s ease;
-        position: relative;
-        flex-shrink: 0;
-      }
-      .tm-switch-track::after {
-        content: '';
-        position: absolute;
-        top: 3px;
-        left: 3px;
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        background: #fff;
-        transition: transform 0.18s ease;
-      }
-      .tm-switch input:checked + .tm-switch-track {
-        background: var(--tm-accent);
-      }
-      .tm-switch input:checked + .tm-switch-track::after {
-        transform: translateX(16px);
+
+      #${IDS.panel}.tm-open {
+        display: block;
       }
 
       .tm-toolbar {
@@ -415,14 +382,10 @@
         <span id="${IDS.counter}">0</span>
       </button>
       <div id="${IDS.panel}" aria-hidden="true">
-        <label class="tm-switch" title="Всегда развёрнуто" aria-label="Всегда развёрнуто">
-          <input type="checkbox" data-action="toggle-always-open" ${STATE.alwaysOpen ? 'checked' : ''}>
-          <span class="tm-switch-track"></span>
-          Всегда открыто
-        </label>
         <div class="tm-toolbar">
           <div class="tm-toolbar-left">
             <button class="tm-btn" type="button" data-action="refresh" title="Обновить" aria-label="Обновить">${ICONS.refresh}</button>
+            <button class="tm-btn" type="button" data-action="toggle-always-open" title="Закрепить панель" aria-label="Закрепить панель">${ICONS.pin}</button>
           </div>
           <div class="tm-toolbar-right">
             <button class="tm-btn tm-danger" type="button" data-action="close" title="Закрыть" aria-label="Закрыть">${ICONS.close}</button>
@@ -470,13 +433,11 @@
       } else if (action === 'download-one') {
         downloadOne(actionTarget.getAttribute('data-id'));
       } else if (action === 'toggle-always-open') {
-        STATE.alwaysOpen = actionTarget.checked;
+        STATE.alwaysOpen = !STATE.alwaysOpen;
         GM_setValue('alwaysOpen', STATE.alwaysOpen ? '1' : '0');
-        STATE.panelOpen = STATE.alwaysOpen;
-        if (STATE.alwaysOpen) {
-          refreshImages();
-        }
-        render();
+        const btn = actionTarget;
+        btn.title = STATE.alwaysOpen ? 'Открепить панель' : 'Закрепить панель';
+        btn.setAttribute('aria-label', btn.title);
       }
     });
   }
@@ -490,7 +451,12 @@
       return;
     }
 
-    root.className = STATE.themeDark ? 'tm-dark' : '';
+    const hasImages = STATE.images.length > 0;
+    root.className = [
+      STATE.themeDark ? 'tm-dark' : '',
+      (!DEBUG_MODE && !hasImages) ? 'tm-hidden' : ''
+    ].join(' ').trim();
+
     panel.className = STATE.panelOpen ? 'tm-open' : '';
     panel.setAttribute('aria-hidden', String(!STATE.panelOpen));
     counter.textContent = String(STATE.selected.size || 0);
@@ -541,7 +507,15 @@
     if (forceRender || STATE.panelOpen) {
       render();
     } else {
+      const root = document.getElementById(IDS.root);
       const counter = document.getElementById(IDS.counter);
+      const hasImages = STATE.images.length > 0;
+      if (root) {
+        root.className = [
+          STATE.themeDark ? 'tm-dark' : '',
+          (!DEBUG_MODE && !hasImages) ? 'tm-hidden' : ''
+        ].join(' ').trim();
+      }
       if (counter) {
         counter.textContent = String(STATE.selected.size || 0);
       }
