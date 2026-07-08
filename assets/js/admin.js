@@ -107,8 +107,12 @@ async function publishDraft() {
       }
     }
 
-    // 5) Перезагрузить state из GitHub и сбросить черновик
-    await loadAllCatalogs();
+    // 5) Принять опубликованный черновик как новую базу (без re-fetch из GitHub —
+    //    CDN может вернуть стейл ещё несколько секунд после коммита)
+    state.publicCatalog  = deepClone(state.draft.publicCatalog);
+    state.privateCatalog = deepClone(state.draft.privateCatalog);
+    initDraft();
+    rebuildCatalogFromDraft();
     toast(`Опубликовано! Магазин обновится через ~30 сек.`);
     renderApp();
   } catch (e) {
