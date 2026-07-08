@@ -109,7 +109,7 @@
       "category": "avito",
       "file": "scripts/avito/pro-tools.user.js",
       "icon": "📊",
-      "color": "#6C63FF",
+      "color": "#10b981",
       "images": [
         "images/scripts/pro-tools-1781819787111-0.png"
       ],
@@ -119,7 +119,7 @@
         "статистика"
       ],
       "installCount": 0,
-      "updatedAt": "2026-06-18"
+      "updatedAt": "2026-07-08"
     }
   ],
   "categories": [
