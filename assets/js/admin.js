@@ -80,6 +80,8 @@ async function publishDraft() {
 
     // 3) Сохранить публичный каталог
     const pubChanged = state.draft.changeCount > 0; // всегда пишем если что-то изменилось
+    console.log('[publishDraft] changeCount:', state.draft.changeCount);
+    console.log('[publishDraft] categories в draft:', state.draft.publicCatalog.categories.map(c => c.id));
     if (pubChanged) {
       const { sha } = await loadCatalogFile(false);
       await gh.putFileText(
@@ -890,9 +892,13 @@ function openCategoryModal(id) {
 function deleteCategory(id) {
   if (!confirm('Удалить категорию?')) return;
 
+  console.log('[deleteCategory] ДО:', state.draft.publicCatalog.categories.map(c => c.id));
+
   applyDraft((cat) => {
     cat.categories = (cat.categories || []).filter((c) => c.id !== id);
   }, false);
+
+  console.log('[deleteCategory] ПОСЛЕ:', state.draft.publicCatalog.categories.map(c => c.id));
 
   rebuildCatalogFromDraft();
   toast('Удалено из черновика', 'info');
