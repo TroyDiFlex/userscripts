@@ -1,4 +1,4 @@
-// Админка Script Store. Версия: 1.5 (2026-07-08)
+// Админка Script Store. Версия: 1.6 (2026-07-08)
 import { loadCatalog, loadPrivateCatalog, escapeHtml, loadScriptVersion } from './common.js';
 import * as gh from './github-api.js';
 import { getInstallStats, clearStatsCache } from './stats.js';
@@ -81,7 +81,7 @@ async function publishDraft() {
     // 3) Сохранить публичный каталог
     const pubChanged = state.draft.changeCount > 0;
     if (pubChanged) {
-      const { sha } = await loadCatalogFile(false);
+      const sha = await gh.getSha(CATALOG_PATH, false);
       await gh.putFileText(
         CATALOG_PATH,
         JSON.stringify(state.draft.publicCatalog, null, 2),
@@ -96,7 +96,7 @@ async function publishDraft() {
       const privOrigStr = JSON.stringify(state.privateCatalog);
       const privDraftStr = JSON.stringify(state.draft.privateCatalog);
       if (privOrigStr !== privDraftStr) {
-        const { sha } = await loadCatalogFile(true);
+        const sha = await gh.getSha(CATALOG_PATH, true);
         await gh.putFileText(
           CATALOG_PATH,
           JSON.stringify(state.draft.privateCatalog, null, 2),
@@ -155,17 +155,26 @@ async function loadCatalogFile(usePrivate = false) {
   let content = file.content;
 
   // Fallback: GitHub иногда не включает content для небольших файлов —
-  // пробуем загрузить напрямую через download_url
-  if (!content && file.raw?.download_url) {
+  // запрашиваем напрямую через API с raw-заголовком (надёжнее, чем download_url для приватных репо)
+  if (!content) {
     try {
-      const res = await fetch(file.raw.download_url, {
-        headers: { 'Authorization': `Bearer ${gh.getToken()}` },
+      const r = usePrivate ? gh.getPrivateRepo() : gh.getRepo();
+      const rawRes = await fetch(`https://api.github.com/repos/${r.owner}/${r.name}/contents/${encodeURIComponent(CATALOG_PATH)}?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Authorization': `Bearer ${gh.getToken()}`,
+          'Accept': 'application/vnd.github.raw+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
       });
-      if (res.ok) content = await res.text();
+      if (rawRes.ok) content = await rawRes.text();
     } catch { /* игнорируем, бросим ниже */ }
   }
 
-  if (!content) throw new Error(`Не удалось загрузить содержимое ${label}. Попробуйте ещё раз.`);
+  if (!content) {
+    if (file.sha) return { sha: file.sha, cat: null };
+    throw new Error(`Не удалось загрузить содержимое ${label}. Попробуйте ещё раз.`);
+  }
   const cat = JSON.parse(content);
   return { sha: file.sha, cat };
 }
