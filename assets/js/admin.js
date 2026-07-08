@@ -1,4 +1,4 @@
-// Админка Script Store. Версия: 1.1 (2026-07-08)
+﻿// Админка Script Store. Версия: 1.2 (2026-07-08)
 import { loadCatalog, loadPrivateCatalog, escapeHtml, loadScriptVersion } from './common.js';
 import * as gh from './github-api.js';
 import { getInstallStats, clearStatsCache } from './stats.js';
@@ -9,16 +9,33 @@ const toasts = document.getElementById('toasts');
 const CATALOG_PATH = 'catalog.json';
 
 // Надёжно загружает catalog.json: sha берётся через directory listing,
-// content — через getFile. Если файла нет — возвращает { sha: null, cat: defaultCat }.
+// content — через getFile.
+// БЕЗОПАСНОСТЬ: если SHA получен, но контент недоступен — кидаем ошибку (не пишем пустышку).
+// Только если файл реально не существует (sha=null И getFile=null) — возвращаем пустой каталог.
 async function loadCatalogFile(usePrivate = false) {
   const empty = { version: 1, scripts: [], categories: [] };
-  const sha = await gh.getSha(CATALOG_PATH, usePrivate);
-  if (!sha) return { sha: null, cat: { ...empty } };
 
+  // Шаг 1: пробуем получить SHA через directory listing
+  const sha = await gh.getSha(CATALOG_PATH, usePrivate);
+
+  // Шаг 2: если SHA не получен — пробуем getFile напрямую (fallback)
+  if (!sha) {
+    const file = await gh.getFile(CATALOG_PATH, usePrivate);
+    if (!file) {
+      // Файл реально не существует — это новый репо, возвращаем пустой каталог
+      return { sha: null, cat: { ...empty } };
+    }
+    // Файл существует но SHA не удалось получить через listing — используем SHA из getFile
+    if (!file.content) throw new Error('Не удалось загрузить содержимое catalog.json (файл есть, контент недоступен)');
+    const cat = JSON.parse(file.content);
+    return { sha: file.sha, cat };
+  }
+
+  // Шаг 3: SHA получен, загружаем контент
   const file = await gh.getFile(CATALOG_PATH, usePrivate);
   // Если файл существует (sha есть), но контент не загрузился — НЕ подменяем на пустой каталог.
   // Иначе saveCatalogWithRetry перезапишет реальные данные пустышкой.
-  if (!file || !file.content) throw new Error('Не удалось загрузить содержимое catalog.json');
+  if (!file || !file.content) throw new Error('Не удалось загрузить содержимое catalog.json (sha=' + sha + ')');
   const cat = JSON.parse(file.content);
   return { sha, cat };
 }
@@ -619,11 +636,10 @@ function openScriptModal(id) {
       delete scriptForCatalog.visibility; // visibility не хранится в catalog.json
       delete scriptForCatalog.version;
 
-      const allCats = state.catalog.categories || [];
       await saveCatalogWithRetry(isPrivate, (cat) => {
         const idx = cat.scripts.findIndex((x) => x.id === s.id);
         if (idx >= 0) cat.scripts[idx] = scriptForCatalog; else cat.scripts.push(scriptForCatalog);
-        cat.categories = allCats;
+        // Не трогаем cat.categories — каждый каталог управляет своими категориями независимо
       }, `${editing ? 'update' : 'add'} script: ${s.id}`);
 
       // 5) Если менялась видимость — удалить из старого catalog.json
