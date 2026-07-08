@@ -147,11 +147,26 @@ window.addEventListener('beforeunload', (e) => {
 // ============================================================
 
 async function loadCatalogFile(usePrivate = false) {
+  const label = usePrivate ? 'catalog.json (приватный)' : 'catalog.json';
   const empty = { version: 1, scripts: [], categories: [] };
   const file = await gh.getFile(CATALOG_PATH, usePrivate);
   if (!file) return { sha: null, cat: { ...empty } };
-  if (!file.content) throw new Error('Не удалось загрузить содержимое catalog.json (файл слишком большой?)');
-  const cat = JSON.parse(file.content);
+
+  let content = file.content;
+
+  // Fallback: GitHub иногда не включает content для небольших файлов —
+  // пробуем загрузить напрямую через download_url
+  if (!content && file.raw?.download_url) {
+    try {
+      const res = await fetch(file.raw.download_url, {
+        headers: { 'Authorization': `Bearer ${gh.getToken()}` },
+      });
+      if (res.ok) content = await res.text();
+    } catch { /* игнорируем, бросим ниже */ }
+  }
+
+  if (!content) throw new Error(`Не удалось загрузить содержимое ${label}. Попробуйте ещё раз.`);
+  const cat = JSON.parse(content);
   return { sha: file.sha, cat };
 }
 
