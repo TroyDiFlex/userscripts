@@ -810,7 +810,16 @@ function renderCategories(el) {
         <thead><tr><th>Иконка</th><th>Название</th><th>ID</th><th>Скриптов</th><th></th></tr></thead>
         <tbody>
           ${cats.length ? cats.map((c) => {
-            const count = (state.catalog.scripts || []).filter((s) => s.category === c.id).length;
+            const pubCount  = (state.draft.publicCatalog.scripts  || []).filter(s => s.category === c.id).length;
+            const privCount = (state.draft.privateCatalog.scripts || []).filter(s => s.category === c.id).length;
+            const count = pubCount + privCount;
+            const countLabel = count === 0 ? '0'
+              : privCount > 0 && pubCount > 0 ? `${pubCount} + ${privCount} 🔒`
+              : privCount > 0 ? `${privCount} 🔒`
+              : `${pubCount}`;
+            const disabledReason = count > 0
+              ? (privCount > 0 ? 'Есть скрипты в этой категории (в т.ч. приватные 🔒). Перенесите их сначала.' : 'Сначала удалите или перенесите скрипты из этой категории.')
+              : '';
             const inGithub = state.publicCatalog?.categories?.some(x => x.id === c.id)
                           || state.privateCatalog?.categories?.some(x => x.id === c.id);
             const draftBadge = !inGithub ? ' <span style="font-size:11px;opacity:.6">(черновик)</span>' : '';
@@ -818,10 +827,10 @@ function renderCategories(el) {
               <td style="font-size:20px">${escapeHtml(c.icon)}</td>
               <td><strong>${escapeHtml(c.name)}</strong>${draftBadge}</td>
               <td><code>${escapeHtml(c.id)}</code></td>
-              <td>${count}</td>
+              <td>${countLabel}</td>
               <td><div class="row-actions">
                 <button class="icon-btn" data-cat-edit="${escapeHtml(c.id)}">✏️</button>
-                <button class="icon-btn danger" data-cat-del="${escapeHtml(c.id)}" ${count ? 'disabled title="Сначала удалите/перенесите скрипты"' : ''}>🗑️</button>
+                <button class="icon-btn danger" data-cat-del="${escapeHtml(c.id)}" ${count ? `disabled title="${escapeHtml(disabledReason)}"` : ''}>🗑️</button>
               </div></td>
             </tr>`;
           }).join('') : `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">Категорий ещё нет</td></tr>`}
