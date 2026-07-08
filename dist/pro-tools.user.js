@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         Avito Pro Tools — Продвижение + Стоимость просмотра
 // @namespace    http://tampermonkey.net/
-// @version      2.4
+// @version      2.5
 // @description  Подсвечивает карточки без продвижения + считает стоимость просмотра
 // @author       TroyDiFlex
 // @match        https://www.avito.ru/*
-// @updateURL    https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/scripts/avito/pro-tools.user.js
-// @downloadURL  https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/scripts/avito/pro-tools.user.js
+// @updateURL    https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/dist/pro-tools.user.js
+// @downloadURL  https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/dist/pro-tools.user.js
 // @run-at       document-idle
 // @grant        none
 // ==/UserScript==

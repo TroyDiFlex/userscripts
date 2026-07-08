@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name         eBay + Avito — скачивание фото
 // @namespace    http://tampermonkey.net/
-// @version      1.8
+// @version      1.9
 // @description  Компактный виджет для выбора и скачивания фотографий со страниц товаров eBay и объявлений Авито.
 // @author       TroyDiFlex
 // @match        *://www.ebay.com/*
 // @match        *://www.avito.ru/*/zapchasti_i_aksessuary/*
 // @match        file:///*
-// @updateURL    https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/scripts/avito/image-downloader.user.js
-// @downloadURL  https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/scripts/avito/image-downloader.user.js
+// @updateURL    https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/dist/image-downloader.user.js
+// @downloadURL  https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/dist/image-downloader.user.js
 // @grant        GM_download
 // @grant        GM_setValue
 // @grant        GM_getValue

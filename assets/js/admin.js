@@ -591,12 +591,11 @@ function openScriptModal(id) {
 
       // 2) Загрузить файл скрипта в НУЖНЫЙ репо
       if (pendingFile) {
-        const folder = s.category;
-        s.file = `scripts/${folder}/${s.id}.user.js`;
+        s.file = `dist/${s.id}.user.js`;
         const b64 = await gh.fileToBase64(pendingFile.file);
         await gh.upsertBase64(s.file, b64, `upload script: ${s.id}`, isPrivate);
       } else if (!s.file) {
-        s.file = `scripts/${s.category}/${s.id}.user.js`;
+        s.file = `dist/${s.id}.user.js`;
       }
 
       // 3) Загрузить картинки в НУЖНЫЙ репо

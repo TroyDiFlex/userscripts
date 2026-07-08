@@ -1,15 +1,15 @@
 // ==UserScript==
 // @name         TecAlliance — Скопировать применимость
 // @namespace    https://www.tecalliance.cn/
-// @version      1.7
+// @version      1.8
 // @description  Плавающая кнопка, собирающая применимость (автомобили) и копирующая их в 5 столбцов для Google Таблиц
 // @author       TroyDiFlex
 // @match        https://www.tecalliance.cn/*/part/*
 // @match        https://*.tecalliance.cn/*/part/*
 // @match        https://tecalliance.net/*/part/*
 // @match        https://*.tecalliance.net/*/part/*
-// @updateURL    https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/scripts/tecalliance/copy-applicability.user.js
-// @downloadURL  https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/scripts/tecalliance/copy-applicability.user.js
+// @updateURL    https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/dist/copy-applicability.user.js
+// @downloadURL  https://raw.githubusercontent.com/TroyDiFlex/userscripts/main/dist/copy-applicability.user.js
 // @grant        GM_setClipboard
 // @run-at       document-idle
 // ==/UserScript==

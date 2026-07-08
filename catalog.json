@@ -47,7 +47,7 @@
       "name": "eBay + Avito — скачивание фото",
       "description": "Добавляет компактный виджет для выбора и скачивания фотографий со страниц товаров eBay и объявлений Авито.",
       "category": "avito",
-      "file": "scripts/avito/image-downloader.user.js",
+      "file": "dist/image-downloader.user.js",
       "icon": "🖼️",
       "color": "#a855f7",
       "images": [
@@ -107,7 +107,7 @@
       "name": "Avito Pro Tools",
       "description": "Подсвечивает в личном кабинете карточки без продвижения и показывает стоимость просмотра.",
       "category": "avito",
-      "file": "scripts/avito/pro-tools.user.js",
+      "file": "dist/pro-tools.user.js",
       "icon": "📊",
       "color": "#10b981",
       "images": [
