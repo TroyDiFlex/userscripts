@@ -1,4 +1,4 @@
-﻿// Админка Script Store. Версия: 1.4 (2026-07-08)
+// Админка Script Store. Версия: 1.5 (2026-07-08)
 import { loadCatalog, loadPrivateCatalog, escapeHtml, loadScriptVersion } from './common.js';
 import * as gh from './github-api.js';
 import { getInstallStats, clearStatsCache } from './stats.js';
@@ -8,52 +8,159 @@ const toasts = document.getElementById('toasts');
 
 const CATALOG_PATH = 'catalog.json';
 
-// Загружает catalog.json одним запросом через getFile.
-// SHA и контент берутся из одного ответа GitHub API — нет race condition.
-// Если файл не существует (404) — возвращает { sha: null, cat: defaultCat }.
-// Если файл есть, но контент недоступен (> 1MB) — кидает ошибку вместо пустышки.
+// ============================================================
+// DRAFT STATE
+// Все изменения накапливаются здесь до нажатия «Опубликовать».
+// В GitHub ничего не уходит до publishDraft().
+// ============================================================
+
+// Инициализирует чистый черновик на основе загруженных каталогов
+function initDraft() {
+  state.draft = {
+    publicCatalog:  deepClone(state.publicCatalog),
+    privateCatalog: deepClone(state.privateCatalog),
+    // Файлы для загрузки: [{path, base64, usePrivate}]
+    pendingFiles:  [],
+    // Файлы для удаления: [{path, usePrivate}]
+    filesToDelete: [],
+    // Счётчик логических изменений (для индикатора)
+    changeCount: 0,
+  };
+}
+
+function isDraftDirty() {
+  return state.draft && state.draft.changeCount > 0;
+}
+
+// Применить изменение к черновому каталогу в памяти
+function applyDraft(changeFn, usePrivate) {
+  const cat = usePrivate ? state.draft.privateCatalog : state.draft.publicCatalog;
+  changeFn(cat);
+  sanitizeCatalogScriptVersions(cat);
+  state.draft.changeCount++;
+  updatePublishButton();
+}
+
+// Добавить файл в очередь загрузки
+function queueFile(path, base64, usePrivate) {
+  // Если файл с таким путём уже в очереди — перезаписать
+  const idx = state.draft.pendingFiles.findIndex(f => f.path === path);
+  if (idx >= 0) state.draft.pendingFiles[idx] = { path, base64, usePrivate };
+  else state.draft.pendingFiles.push({ path, base64, usePrivate });
+}
+
+// Добавить файл в очередь удаления
+function queueDelete(path, usePrivate) {
+  // Если был в очереди загрузки — убрать оттуда (передумали)
+  state.draft.pendingFiles = state.draft.pendingFiles.filter(f => f.path !== path);
+  // Добавить в очередь удаления только реально существующих файлов
+  if (!state.draft.filesToDelete.some(f => f.path === path)) {
+    state.draft.filesToDelete.push({ path, usePrivate });
+  }
+}
+
+// Публикация черновика: загружаем файлы + пишем каталоги
+async function publishDraft() {
+  const btn = document.getElementById('publish-btn');
+  if (btn) { btn.dataset.loading = '1'; btn.textContent = 'Публикую…'; }
+
+  try {
+    // 1) Удалить файлы из очереди удаления
+    for (const { path, usePrivate } of state.draft.filesToDelete) {
+      try {
+        const sha = await gh.getSha(path, usePrivate);
+        if (sha) await gh.deleteFile(path, sha, `delete: ${path}`, usePrivate);
+      } catch { /* файла нет — не страшно */ }
+    }
+
+    // 2) Загрузить новые/обновлённые файлы
+    for (const { path, base64, usePrivate } of state.draft.pendingFiles) {
+      await gh.upsertBase64(path, base64, `upload: ${path}`, usePrivate);
+    }
+
+    // 3) Сохранить публичный каталог
+    const pubChanged = state.draft.changeCount > 0; // всегда пишем если что-то изменилось
+    if (pubChanged) {
+      const { sha } = await loadCatalogFile(false);
+      await gh.putFileText(
+        CATALOG_PATH,
+        JSON.stringify(state.draft.publicCatalog, null, 2),
+        `admin: batch update (${state.draft.changeCount} changes)`,
+        sha,
+        false,
+      );
+    }
+
+    // 4) Сохранить приватный каталог (если он отличается от исходного)
+    if (gh.hasPrivateRepo()) {
+      const privOrigStr = JSON.stringify(state.privateCatalog);
+      const privDraftStr = JSON.stringify(state.draft.privateCatalog);
+      if (privOrigStr !== privDraftStr) {
+        const { sha } = await loadCatalogFile(true);
+        await gh.putFileText(
+          CATALOG_PATH,
+          JSON.stringify(state.draft.privateCatalog, null, 2),
+          `admin: batch update private`,
+          sha,
+          true,
+        );
+      }
+    }
+
+    // 5) Перезагрузить state из GitHub и сбросить черновик
+    await loadAllCatalogs();
+    toast(`Опубликовано! Магазин обновится через ~30 сек.`);
+    renderApp();
+  } catch (e) {
+    toast('Ошибка публикации: ' + e.message, 'error', 8000);
+    if (btn) { btn.dataset.loading = ''; btn.textContent = publishBtnLabel(); }
+  }
+}
+
+function publishBtnLabel() {
+  const n = state.draft?.changeCount || 0;
+  return n > 0 ? `🚀 Опубликовать (${n})` : '🚀 Опубликовать';
+}
+
+function updatePublishButton() {
+  const btn = document.getElementById('publish-btn');
+  if (!btn) return;
+  const dirty = isDraftDirty();
+  btn.textContent = publishBtnLabel();
+  btn.disabled = !dirty;
+}
+
+// Предупреждение при закрытии вкладки с несохранёнными изменениями
+window.addEventListener('beforeunload', (e) => {
+  if (isDraftDirty()) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+// ============================================================
+
 async function loadCatalogFile(usePrivate = false) {
   const empty = { version: 1, scripts: [], categories: [] };
-
   const file = await gh.getFile(CATALOG_PATH, usePrivate);
-
-  // Файл не существует — новый репо, каталог будет создан
   if (!file) return { sha: null, cat: { ...empty } };
-
-  // Файл есть, но контент недоступен (слишком большой?) — НЕ подменяем пустышкой
   if (!file.content) throw new Error('Не удалось загрузить содержимое catalog.json (файл слишком большой?)');
-
   const cat = JSON.parse(file.content);
   return { sha: file.sha, cat };
 }
 
-// Сохраняет catalog.json с автоповтором при 409 (SHA-конфликт).
-// changeFn получает cat и должна его изменить. Возвращает итоговый каталог.
-async function saveCatalogWithRetry(usePrivate, changeFn, commitMsg, maxRetries = 3) {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const { sha, cat } = await loadCatalogFile(usePrivate);
-    changeFn(cat);
-    sanitizeCatalogScriptVersions(cat);
-    try {
-      await gh.putFileText(CATALOG_PATH, JSON.stringify(cat, null, 2), commitMsg, sha, usePrivate);
-      return;
-    } catch (e) {
-      if (e.status === 409 && attempt < maxRetries) {
-        await new Promise(r => setTimeout(r, 500 * attempt));
-        continue;
-      }
-      throw e;
-    }
-  }
+function deepClone(obj) {
+  return JSON.parse(JSON.stringify(obj ?? { version: 1, scripts: [], categories: [] }));
 }
 
 let state = {
   tab: 'scripts',
-  catalog: null,         // объединённый каталог (public + private)
-  publicCatalog: null,   // raw публичный catalog.json
-  privateCatalog: null,  // raw приватный catalog.json
+  catalog: null,
+  publicCatalog: null,
+  privateCatalog: null,
   loading: false,
   orderDirty: { public: false, private: false },
+  draft: null,
 };
 
 // ============ Toast ============
@@ -81,6 +188,24 @@ function sanitizeCatalogScriptVersions(cat) {
   return cat;
 }
 
+// Объединяет черновые каталоги в state.catalog для отображения в UI
+function rebuildCatalogFromDraft() {
+  const pubCat  = state.draft.publicCatalog;
+  const privCat = state.draft.privateCatalog;
+  const pubScripts  = (pubCat.scripts  || []).map(s => ({ ...s, visibility: 'public'  }));
+  const privScripts = (privCat.scripts || []).map(s => ({ ...s, visibility: 'private' }));
+  const cats = [...(pubCat.categories || [])];
+  for (const c of (privCat.categories || [])) {
+    if (!cats.some(x => x.id === c.id)) cats.push(c);
+  }
+  state.catalog = {
+    version: pubCat.version || 1,
+    scripts: [...pubScripts, ...privScripts],
+    categories: cats,
+  };
+  state.orderDirty = { public: false, private: false };
+}
+
 // ============ Bootstrap ============
 async function boot() {
   if (!gh.getToken() || !gh.getRepo().owner) {
@@ -96,39 +221,20 @@ async function boot() {
 }
 
 async function loadAllCatalogs() {
-  // Публичный каталог
   let pubCat = { version: 1, scripts: [], categories: [] };
-  try {
-    pubCat = await loadCatalog();
-  } catch { /* */ }
+  try { pubCat = await loadCatalog(); } catch { /* */ }
 
-  // Приватный каталог (если репо настроен)
   let privCat = { version: 1, scripts: [], categories: [] };
   if (gh.hasPrivateRepo()) {
-    try {
-      privCat = await loadPrivateCatalog();
-    } catch { /* */ }
+    try { privCat = await loadPrivateCatalog(); } catch { /* */ }
   }
 
-  state.publicCatalog = pubCat;
+  state.publicCatalog  = pubCat;
   state.privateCatalog = privCat;
 
-  // Объединяем с пометкой visibility
-  const pubScripts = (pubCat.scripts || []).map(s => ({ ...s, visibility: 'public' }));
-  const privScripts = (privCat.scripts || []).map(s => ({ ...s, visibility: 'private' }));
-
-  // Категории объединяем уникально
-  const cats = [...(pubCat.categories || [])];
-  for (const c of (privCat.categories || [])) {
-    if (!cats.some(x => x.id === c.id)) cats.push(c);
-  }
-
-  state.catalog = {
-    version: pubCat.version || 1,
-    scripts: [...pubScripts, ...privScripts],
-    categories: cats,
-  };
-  state.orderDirty = { public: false, private: false };
+  // Инициализируем черновик из свежих данных
+  initDraft();
+  rebuildCatalogFromDraft();
 }
 
 // ============ Gate ============
@@ -158,7 +264,7 @@ function renderGate(err = '') {
   const form = document.getElementById('gate-form');
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const pat = document.getElementById('g-pat').value.trim();
+    const pat  = document.getElementById('g-pat').value.trim();
     const repo = document.getElementById('g-repo').value.trim();
     gh.setAuth(pat, repo);
     const btn = form.querySelector('button');
@@ -181,15 +287,16 @@ function renderGate(err = '') {
 function renderApp() {
   const repo = gh.getRepo();
   const hasPrivate = gh.hasPrivateRepo();
+  const dirty = isDraftDirty();
   root.innerHTML = `
     <div class="app">
       <aside class="sidebar">
         <div class="sidebar-logo"><span class="sidebar-logo-mark">⚡</span><span>Script Store</span></div>
         <nav class="nav">
-          ${navItem('scripts', '📜', 'Скрипты')}
+          ${navItem('scripts',    '📜', 'Скрипты')}
           ${navItem('categories', '🗂', 'Категории')}
-          ${navItem('stats', '📊', 'Статистика')}
-          ${navItem('settings', '⚙️', 'Настройки')}
+          ${navItem('stats',      '📊', 'Статистика')}
+          ${navItem('settings',   '⚙️', 'Настройки')}
         </nav>
         <div class="sidebar-foot">
           <a href="index.html" target="_blank">Открыть магазин ↗</a><br>
@@ -203,7 +310,10 @@ function renderApp() {
             <span>${escapeHtml(repo.owner)}/${escapeHtml(repo.name)}</span>
             ${hasPrivate ? `<span style="margin-left:8px;opacity:.6;font-size:12px">+ приватный</span>` : ''}
           </div>
-          <button id="logout" class="btn-logout">Выйти</button>
+          <div class="topbar-actions">
+            <button id="publish-btn" class="btn btn-publish" ${dirty ? '' : 'disabled'}>${publishBtnLabel()}</button>
+            <button id="logout" class="btn-logout">Выйти</button>
+          </div>
         </div>
         <div id="content" class="content"></div>
       </main>
@@ -213,20 +323,23 @@ function renderApp() {
     b.addEventListener('click', () => { state.tab = b.dataset.tab; renderApp(); });
   });
   document.getElementById('logout').addEventListener('click', () => {
+    if (isDraftDirty() && !confirm('Есть несохранённые изменения. Выйти и потерять их?')) return;
     if (confirm('Выйти и очистить токен?')) { gh.clearAuth(); boot(); }
   });
+  document.getElementById('publish-btn').addEventListener('click', publishDraft);
   renderTab();
 }
+
 function navItem(id, icon, label) {
   return `<button class="nav-item ${state.tab === id ? 'active' : ''}" data-tab="${id}"><span class="icon">${icon}</span>${label}</button>`;
 }
 
 function renderTab() {
   const el = document.getElementById('content');
-  if (state.tab === 'scripts') return renderScripts(el);
+  if (state.tab === 'scripts')    return renderScripts(el);
   if (state.tab === 'categories') return renderCategories(el);
-  if (state.tab === 'stats') return renderStats(el);
-  if (state.tab === 'settings') return renderSettings(el);
+  if (state.tab === 'stats')      return renderStats(el);
+  if (state.tab === 'settings')   return renderSettings(el);
 }
 
 // ============ Scripts tab ============
@@ -235,10 +348,10 @@ function renderScripts(el) {
   const orderChanged = state.orderDirty.public || state.orderDirty.private;
   el.innerHTML = `
     <h1>Скрипты</h1>
-    <p class="subtitle">Всего ${scripts.length}. Изменения сохраняются прямо в репозиторий.</p>
+    <p class="subtitle">Всего ${scripts.length}. Изменения накапливаются в черновике — нажмите «Опубликовать» в шапке, чтобы сохранить всё разом.</p>
     <div class="toolbar">
       <button id="add" class="btn btn-primary">+ Добавить скрипт</button>
-      <button id="save-order" class="btn btn-secondary" ${orderChanged ? '' : 'disabled'}>↕ Сохранить порядок</button>
+      <button id="save-order" class="btn btn-secondary" ${orderChanged ? '' : 'disabled'}>↕ Применить порядок</button>
       <div class="spacer"></div>
     </div>
     <div class="table-wrap">
@@ -253,9 +366,9 @@ function renderScripts(el) {
     </div>
   `;
   document.getElementById('add').addEventListener('click', () => openScriptModal(null));
-  document.getElementById('save-order').addEventListener('click', saveScriptOrder);
+  document.getElementById('save-order').addEventListener('click', applyScriptOrder);
   el.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => openScriptModal(b.dataset.edit)));
-  el.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', () => deleteScript(b.dataset.del)));
+  el.querySelectorAll('[data-del]').forEach((b)  => b.addEventListener('click', () => deleteScript(b.dataset.del)));
   el.querySelectorAll('[data-order-id]').forEach((b) => {
     b.addEventListener('click', () => moveScriptOrder(b.dataset.orderId, Number(b.dataset.orderDir)));
   });
@@ -280,17 +393,20 @@ function rowHtml(s, scripts) {
   const isPrivate = s.visibility === 'private';
   const sameVisibility = scripts.filter((x) => (x.visibility || 'public') === (s.visibility || 'public'));
   const orderIndex = sameVisibility.findIndex((x) => x.id === s.id);
+  // Показываем метку черновика если скрипт ещё не в GitHub (только в draft)
+  const inGithub = (isPrivate ? state.privateCatalog : state.publicCatalog)?.scripts?.some(x => x.id === s.id);
+  const draftBadge = !inGithub ? ' <span style="font-size:11px;opacity:.6;font-weight:400">(черновик)</span>' : '';
   return `
     <tr>
       <td>
         <div class="order-controls">
           <button class="icon-btn" data-order-id="${escapeHtml(s.id)}" data-order-dir="-1" title="Выше" ${orderIndex <= 0 ? 'disabled' : ''}>↑</button>
-          <button class="icon-btn" data-order-id="${escapeHtml(s.id)}" data-order-dir="1" title="Ниже" ${orderIndex >= sameVisibility.length - 1 ? 'disabled' : ''}>↓</button>
+          <button class="icon-btn" data-order-id="${escapeHtml(s.id)}" data-order-dir="1"  title="Ниже" ${orderIndex >= sameVisibility.length - 1 ? 'disabled' : ''}>↓</button>
         </div>
       </td>
       <td>
         <span class="row-icon" style="background:${escapeHtml(s.color || '#6C63FF')}33;border:1px solid ${escapeHtml(s.color || '#6C63FF')}66">${escapeHtml(s.icon || '📜')}</span>
-        <strong>${escapeHtml(s.name)}</strong>
+        <strong>${escapeHtml(s.name)}</strong>${draftBadge}
       </td>
       <td>${escapeHtml(cat?.name || s.category)}</td>
       <td><span data-script-version="${escapeHtml(s.id)}">&mdash;</span></td>
@@ -322,39 +438,33 @@ function moveScriptOrder(id, dir) {
   renderTab();
 }
 
-async function saveScriptOrder() {
+// Применить текущий порядок в черновик (без пуша в GitHub)
+function applyScriptOrder() {
   const btn = document.getElementById('save-order');
   if (!btn || btn.disabled) return;
-  btn.dataset.loading = '1';
-  btn.textContent = 'Сохраняю…';
 
-  try {
-    for (const usePrivate of [false, true]) {
-      const visibility = usePrivate ? 'private' : 'public';
-      if (!state.orderDirty[visibility]) continue;
-      if (usePrivate && !gh.hasPrivateRepo()) continue;
+  for (const usePrivate of [false, true]) {
+    const visibility = usePrivate ? 'private' : 'public';
+    if (!state.orderDirty[visibility]) continue;
+    if (usePrivate && !gh.hasPrivateRepo()) continue;
 
-      const orderedIds = (state.catalog.scripts || [])
-        .filter((s) => (s.visibility || 'public') === visibility)
-        .map((s) => s.id);
-      const order = new Map(orderedIds.map((id, index) => [id, index]));
-      await saveCatalogWithRetry(usePrivate, (cat) => {
-        cat.scripts = (cat.scripts || []).slice().sort((a, b) => {
-          const ai = order.has(a.id) ? order.get(a.id) : Number.MAX_SAFE_INTEGER;
-          const bi = order.has(b.id) ? order.get(b.id) : Number.MAX_SAFE_INTEGER;
-          return ai - bi;
-        });
-      }, `reorder ${visibility} scripts`);
-    }
+    const orderedIds = (state.catalog.scripts || [])
+      .filter((s) => (s.visibility || 'public') === visibility)
+      .map((s) => s.id);
+    const order = new Map(orderedIds.map((id, index) => [id, index]));
 
-    await loadAllCatalogs();
-    toast('Порядок сохранён');
-    renderTab();
-  } catch (e) {
-    toast('Ошибка: ' + e.message, 'error', 8000);
-    btn.dataset.loading = '';
-    btn.textContent = '↕ Сохранить порядок';
+    applyDraft((cat) => {
+      cat.scripts = (cat.scripts || []).slice().sort((a, b) => {
+        const ai = order.has(a.id) ? order.get(a.id) : Number.MAX_SAFE_INTEGER;
+        const bi = order.has(b.id) ? order.get(b.id) : Number.MAX_SAFE_INTEGER;
+        return ai - bi;
+      });
+    }, usePrivate);
   }
+
+  rebuildCatalogFromDraft();
+  toast('Порядок применён в черновик', 'info');
+  renderTab();
 }
 
 // ============ Script modal ============
@@ -367,11 +477,12 @@ function openScriptModal(id) {
     images: [], tags: [],
   };
 
-  const origVisibility = orig?.visibility || null;  // запомним исходную видимость
+  const origVisibility = orig?.visibility || null;
 
-  let pendingFile = null;        // {file, name}
-  const pendingImages = [];      // [{file, name, dataUrl}]
-  const removedImages = [];      // existing paths to delete on save
+  // Файлы хранятся как {file, name, base64, dataUrl} — не загружаются сразу
+  let pendingScriptFile = null;       // {file, name, base64}
+  const pendingImages   = [];         // [{file, name, base64, dataUrl}]
+  const removedImages   = [];         // пути существующих картинок на удаление
 
   const back = document.createElement('div');
   back.className = 'modal-back';
@@ -405,14 +516,13 @@ function openScriptModal(id) {
           <div class="field">
             <label>Видимость</label>
             <div class="toggle" data-toggle="visibility">
-              <button type="button" data-v="public" class="${s.visibility === 'public' ? 'active' : ''}">🌐 Публичный</button>
+              <button type="button" data-v="public"  class="${s.visibility === 'public'  ? 'active' : ''}">🌐 Публичный</button>
               <button type="button" data-v="private" class="${s.visibility === 'private' ? 'active' : ''}">🔒 Приватный</button>
             </div>
             ${!gh.hasPrivateRepo() ? `<div class="hint" style="color:var(--warning)">⚠️ Настройте приватный репо в Настройках</div>` : ''}
           </div>
         </div>
         <div class="field-row">
-
           <div class="field">
             <label>Иконка (эмодзи)</label>
             <input class="input" data-f="icon" value="${escapeHtml(s.icon)}" />
@@ -434,7 +544,7 @@ function openScriptModal(id) {
           <div class="dropzone" id="dz-script">
             <div class="big">📜</div>
             <div>Перетащите файл сюда или нажмите, чтобы выбрать</div>
-            <div class="hint" style="margin-top:6px">${editing && s.file ? `Сейчас: <code>${escapeHtml(s.file)}</code>` : 'Файл будет загружен в репозиторий при сохранении'}</div>
+            <div class="hint" style="margin-top:6px">${editing && s.file ? `Сейчас: <code>${escapeHtml(s.file)}</code>` : 'Файл будет добавлен в черновик'}</div>
           </div>
           <div id="script-pill"></div>
         </div>
@@ -451,7 +561,7 @@ function openScriptModal(id) {
       </div>
       <div class="modal-foot">
         <button class="btn btn-ghost" data-close>Отмена</button>
-        <button class="btn btn-primary" id="save">💾 Сохранить</button>
+        <button class="btn btn-primary" id="save">💾 В черновик</button>
       </div>
     </div>
   `;
@@ -476,7 +586,7 @@ function openScriptModal(id) {
 
   // Chips
   const chipsBox = back.querySelector('#chips');
-  const chipsIn = back.querySelector('#chips-in');
+  const chipsIn  = back.querySelector('#chips-in');
   function tagChip(t) { return `<span class="chip-tag" data-tag="${escapeHtml(t)}">${escapeHtml(t)}<button type="button" aria-label="Удалить">✕</button></span>`; }
   chipsBox.addEventListener('click', (e) => {
     if (e.target.tagName === 'BUTTON') {
@@ -498,19 +608,21 @@ function openScriptModal(id) {
     }
   });
 
-  // Script dropzone
-  const dzScript = back.querySelector('#dz-script');
+  // Script dropzone — конвертируем в base64 сразу, но НЕ загружаем
+  const dzScript  = back.querySelector('#dz-script');
   const scriptPill = back.querySelector('#script-pill');
-  setupDropzone(dzScript, '.user.js,.js', false, (files) => {
+  setupDropzone(dzScript, '.user.js,.js', false, async (files) => {
     const f = files[0]; if (!f) return;
-    pendingFile = { file: f, name: f.name };
+    const base64 = await gh.fileToBase64(f);
+    pendingScriptFile = { file: f, name: f.name, base64 };
     scriptPill.innerHTML = `<span class="file-pill">📜 ${escapeHtml(f.name)} <button type="button" aria-label="Убрать">✕</button></span>`;
-    scriptPill.querySelector('button').addEventListener('click', () => { pendingFile = null; scriptPill.innerHTML = ''; });
+    scriptPill.querySelector('button').addEventListener('click', () => { pendingScriptFile = null; scriptPill.innerHTML = ''; });
   });
 
-  // Images dropzone
-  const dzImg = back.querySelector('#dz-img');
+  // Images dropzone — конвертируем в base64 сразу, но НЕ загружаем
+  const dzImg    = back.querySelector('#dz-img');
   const thumbsBox = back.querySelector('#thumbs');
+
   function thumbExisting(src, i) {
     return `<div class="thumb" data-existing="${escapeHtml(src)}"><img src="${escapeHtml(src)}" alt=""><div class="thumb-actions"><button type="button" data-move="-1" aria-label="Раньше" title="Раньше" ${i <= 0 ? 'disabled' : ''}>&larr;</button><button type="button" data-move="1" aria-label="Позже" title="Позже" ${i >= s.images.length - 1 ? 'disabled' : ''}>&rarr;</button><button type="button" class="thumb-remove" data-remove aria-label="Удалить">✕</button></div></div>`;
   }
@@ -547,19 +659,17 @@ function openScriptModal(id) {
       renderThumbs();
     }
   });
-  setupDropzone(dzImg, 'image/*', true, (files) => {
+  setupDropzone(dzImg, 'image/*', true, async (files) => {
     for (const f of files) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const idx = pendingImages.length;
-        pendingImages.push({ file: f, name: f.name, dataUrl: reader.result });
-        renderThumbs();
-      };
-      reader.readAsDataURL(f);
+      const dataUrl = await readFileAsDataUrl(f);
+      const base64  = await gh.fileToBase64(f);
+      const idx = pendingImages.length;
+      pendingImages.push({ file: f, name: f.name, base64, dataUrl });
+      renderThumbs();
     }
   });
 
-  // Save
+  // Save → в черновик (без GitHub API)
   back.querySelector('#save').addEventListener('click', async () => {
     if (!s.id || !s.name) { toast('Заполните ID и название', 'error'); return; }
     if (!editing && state.catalog.scripts.some((x) => x.id === s.id)) { toast('ID занят', 'error'); return; }
@@ -569,83 +679,78 @@ function openScriptModal(id) {
     }
 
     const saveBtn = back.querySelector('#save');
-    saveBtn.dataset.loading = '1'; saveBtn.textContent = 'Сохраняю…';
+    saveBtn.dataset.loading = '1'; saveBtn.textContent = 'Применяю…';
 
     const isPrivate = s.visibility === 'private';
     const visibilityChanged = editing && origVisibility !== null && origVisibility !== s.visibility;
     const wasPrivate = origVisibility === 'private';
 
     try {
-      // 1) Если скрипт МЕНЯЛ видимость — удалить из старого репо
-      if (visibilityChanged && orig.file) {
-        const oldPrivate = wasPrivate;
-        try {
-          const oldSha = await gh.getSha(orig.file, oldPrivate);
-          if (oldSha) await gh.deleteFile(orig.file, oldSha, `move script to ${s.visibility}: ${s.id}`, oldPrivate);
-        } catch { /* файла нет — не страшно */ }
-        // Удалить старые картинки из старого репо
-        for (const p of (orig.images || [])) {
-          try { const sha = await gh.getSha(p, oldPrivate); if (sha) await gh.deleteFile(p, sha, `move image: ${p}`, oldPrivate); } catch { /* */ }
-        }
-      }
-
-      // 2) Загрузить файл скрипта в НУЖНЫЙ репо
-      if (pendingFile) {
+      // Файл скрипта
+      if (pendingScriptFile) {
         s.file = `dist/${s.id}.user.js`;
-        const b64 = await gh.fileToBase64(pendingFile.file);
-        await gh.upsertBase64(s.file, b64, `upload script: ${s.id}`, isPrivate);
+        queueFile(s.file, pendingScriptFile.base64, isPrivate);
       } else if (!s.file) {
         s.file = `dist/${s.id}.user.js`;
       }
 
-      // 3) Загрузить картинки в НУЖНЫЙ репо
+      // Если смена видимости — старый файл скрипта на удаление, старые картинки тоже
+      if (visibilityChanged && orig.file) {
+        queueDelete(orig.file, wasPrivate);
+        for (const p of (orig.images || [])) queueDelete(p, wasPrivate);
+      }
+
+      // Картинки: новые в очередь загрузки
       const newImgs = visibilityChanged ? [] : [...s.images];
       for (let i = 0; i < pendingImages.length; i++) {
         const it = pendingImages[i];
         if (!it) continue;
         const ext = (it.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
         const path = `images/scripts/${s.id}-${Date.now()}-${i}.${ext}`;
-        const b64 = await gh.fileToBase64(it.file);
-        await gh.upsertBase64(path, b64, `upload image: ${path}`, isPrivate);
+        queueFile(path, it.base64, isPrivate);
         newImgs.push(path);
       }
-      // Если видимость не менялась — удалить удалённые картинки
+      // Удалённые картинки
       if (!visibilityChanged) {
-        for (const p of removedImages) {
-          try { const sha = await gh.getSha(p, isPrivate); if (sha) await gh.deleteFile(p, sha, `delete image: ${p}`, isPrivate); } catch { /* */ }
-        }
+        for (const p of removedImages) queueDelete(p, isPrivate);
       }
       s.images = newImgs;
 
-      // 4) Обновить catalog.json НУЖНОГО репо
+      // Обновить черновой каталог
       s.updatedAt = new Date().toISOString().slice(0, 10);
       const scriptForCatalog = { ...s };
-      delete scriptForCatalog.visibility; // visibility не хранится в catalog.json
+      delete scriptForCatalog.visibility;
       delete scriptForCatalog.version;
 
-      await saveCatalogWithRetry(isPrivate, (cat) => {
+      applyDraft((cat) => {
         const idx = cat.scripts.findIndex((x) => x.id === s.id);
         if (idx >= 0) cat.scripts[idx] = scriptForCatalog; else cat.scripts.push(scriptForCatalog);
-        // Не трогаем cat.categories — каждый каталог управляет своими категориями независимо
-      }, `${editing ? 'update' : 'add'} script: ${s.id}`);
+      }, isPrivate);
 
-      // 5) Если менялась видимость — удалить из старого catalog.json
+      // Если сменилась видимость — убрать из старого каталога
       if (visibilityChanged) {
-        const oldPrivate = wasPrivate;
-        await saveCatalogWithRetry(oldPrivate, (oldCat) => {
-          oldCat.scripts = (oldCat.scripts || []).filter((x) => x.id !== s.id);
-        }, `remove script (moved): ${s.id}`);
+        applyDraft((cat) => {
+          cat.scripts = (cat.scripts || []).filter((x) => x.id !== s.id);
+        }, wasPrivate);
       }
 
-      // 6) Обновить локальный state
-      await loadAllCatalogs();
-      toast('Сохранено! Магазин обновится через ~30 сек.');
+      rebuildCatalogFromDraft();
+      toast('Добавлено в черновик. Нажмите «Опубликовать» чтобы сохранить в GitHub.', 'info', 5000);
       close();
       renderTab();
     } catch (e) {
       toast('Ошибка: ' + e.message, 'error', 8000);
-      saveBtn.dataset.loading = ''; saveBtn.textContent = '💾 Сохранить';
+      saveBtn.dataset.loading = ''; saveBtn.textContent = '💾 В черновик';
     }
+  });
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
 }
 
@@ -660,26 +765,26 @@ function setupDropzone(el, accept, multiple, onFiles) {
   el.addEventListener('drop', (e) => { onFiles(Array.from(e.dataTransfer.files)); });
 }
 
-async function deleteScript(id) {
+function deleteScript(id) {
   const s = state.catalog.scripts.find((x) => x.id === id);
   if (!s) return;
-  if (!confirm(`Удалить "${s.name}"? Это также удалит файл скрипта и изображения из репозитория.`)) return;
+  if (!confirm(`Удалить «${s.name}»?\nФайлы будут удалены из репозитория при публикации.`)) return;
+
   const isPrivate = s.visibility === 'private';
-  try {
-    // Удалить файл скрипта
-    try { const sha = await gh.getSha(s.file, isPrivate); if (sha) await gh.deleteFile(s.file, sha, `delete script: ${s.id}`, isPrivate); } catch { /* */ }
-    // Удалить картинки
-    for (const p of (s.images || [])) {
-      try { const sha = await gh.getSha(p, isPrivate); if (sha) await gh.deleteFile(p, sha, `delete image: ${p}`, isPrivate); } catch { /* */ }
-    }
-    // Обновить catalog.json
-    await saveCatalogWithRetry(isPrivate, (cat) => {
-      cat.scripts = (cat.scripts || []).filter((x) => x.id !== id);
-    }, `delete script: ${id}`);
-    await loadAllCatalogs();
-    toast('Удалено');
-    renderTab();
-  } catch (e) { toast('Ошибка: ' + e.message, 'error', 8000); }
+
+  // Файл скрипта на удаление
+  if (s.file) queueDelete(s.file, isPrivate);
+  // Картинки на удаление
+  for (const p of (s.images || [])) queueDelete(p, isPrivate);
+
+  // Убрать из чернового каталога
+  applyDraft((cat) => {
+    cat.scripts = (cat.scripts || []).filter((x) => x.id !== id);
+  }, isPrivate);
+
+  rebuildCatalogFromDraft();
+  toast('Удалено из черновика. Нажмите «Опубликовать» чтобы применить в GitHub.', 'info', 5000);
+  renderTab();
 }
 
 // ============ Categories tab ============
@@ -697,9 +802,11 @@ function renderCategories(el) {
         <tbody>
           ${cats.length ? cats.map((c) => {
             const count = (state.catalog.scripts || []).filter((s) => s.category === c.id).length;
+            const inGithub = state.publicCatalog?.categories?.some(x => x.id === c.id);
+            const draftBadge = !inGithub ? ' <span style="font-size:11px;opacity:.6">(черновик)</span>' : '';
             return `<tr>
               <td style="font-size:20px">${escapeHtml(c.icon)}</td>
-              <td><strong>${escapeHtml(c.name)}</strong></td>
+              <td><strong>${escapeHtml(c.name)}</strong>${draftBadge}</td>
               <td><code>${escapeHtml(c.id)}</code></td>
               <td>${count}</td>
               <td><div class="row-actions">
@@ -714,7 +821,7 @@ function renderCategories(el) {
   `;
   document.getElementById('add-cat').addEventListener('click', () => openCategoryModal(null));
   el.querySelectorAll('[data-cat-edit]').forEach((b) => b.addEventListener('click', () => openCategoryModal(b.dataset.catEdit)));
-  el.querySelectorAll('[data-cat-del]').forEach((b) => b.addEventListener('click', () => deleteCategory(b.dataset.catDel)));
+  el.querySelectorAll('[data-cat-del]').forEach((b)  => b.addEventListener('click', () => deleteCategory(b.dataset.catDel)));
 }
 
 function openCategoryModal(id) {
@@ -733,7 +840,7 @@ function openCategoryModal(id) {
       </div>
       <div class="modal-foot">
         <button class="btn btn-ghost" data-close>Отмена</button>
-        <button class="btn btn-primary" id="c-save">Сохранить</button>
+        <button class="btn btn-primary" id="c-save">💾 В черновик</button>
       </div>
     </div>
   `;
@@ -741,38 +848,36 @@ function openCategoryModal(id) {
   const close = () => back.remove();
   back.addEventListener('click', (e) => { if (e.target === back) close(); });
   back.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', close));
-  back.querySelector('#c-save').addEventListener('click', async () => {
-    c.id = back.querySelector('#c-id').value.trim();
+  back.querySelector('#c-save').addEventListener('click', () => {
+    c.id   = back.querySelector('#c-id').value.trim();
     c.name = back.querySelector('#c-name').value.trim();
     c.icon = back.querySelector('#c-icon').value.trim() || '📂';
     if (!c.id || !c.name) { toast('Заполните поля', 'error'); return; }
-    const btn = back.querySelector('#c-save'); btn.dataset.loading = '1'; btn.textContent = 'Сохраняю…';
-    try {
-      // Категории хранятся только в публичном репо — приватный репо не трогаем
-      await saveCatalogWithRetry(false, (cat) => {
-        cat.categories = cat.categories || [];
-        const idx = cat.categories.findIndex((x) => x.id === c.id);
-        if (idx >= 0) cat.categories[idx] = c; else cat.categories.push(c);
-      }, `${editing ? 'update' : 'add'} category: ${c.id}`);
-      await loadAllCatalogs();
-      toast('Сохранено');
-      close();
-      renderTab();
-    } catch (e) { toast('Ошибка: ' + e.message, 'error'); btn.dataset.loading = ''; btn.textContent = 'Сохранить'; }
+
+    // Категории хранятся только в публичном каталоге
+    applyDraft((cat) => {
+      cat.categories = cat.categories || [];
+      const idx = cat.categories.findIndex((x) => x.id === c.id);
+      if (idx >= 0) cat.categories[idx] = { ...c }; else cat.categories.push({ ...c });
+    }, false);
+
+    rebuildCatalogFromDraft();
+    toast('Категория добавлена в черновик', 'info');
+    close();
+    renderTab();
   });
 }
 
-async function deleteCategory(id) {
+function deleteCategory(id) {
   if (!confirm('Удалить категорию?')) return;
-  try {
-    // Категории хранятся только в публичном репо — приватный репо не трогаем
-    await saveCatalogWithRetry(false, (cat) => {
-      cat.categories = (cat.categories || []).filter((c) => c.id !== id);
-    }, `delete category: ${id}`);
-    await loadAllCatalogs();
-    toast('Удалено');
-    renderTab();
-  } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
+
+  applyDraft((cat) => {
+    cat.categories = (cat.categories || []).filter((c) => c.id !== id);
+  }, false);
+
+  rebuildCatalogFromDraft();
+  toast('Удалено из черновика', 'info');
+  renderTab();
 }
 
 // ============ Stats tab ============
@@ -799,16 +904,17 @@ async function renderStats(el) {
   document.getElementById('refresh').addEventListener('click', () => { clearStatsCache(); renderStats(el); });
   for (const s of scripts) {
     try {
-      const st = await getInstallStats(s.id);
+      const st  = await getInstallStats(s.id);
       const row = el.querySelector(`[data-row="${cssEscapeAttr(s.id)}"]`);
       if (row) {
         row.children[1].textContent = st.total || 0;
         row.children[2].textContent = st.month || 0;
-        row.children[3].textContent = st.week || 0;
+        row.children[3].textContent = st.week  || 0;
       }
     } catch { /* */ }
   }
 }
+
 function cssEscapeAttr(s) { return String(s).replace(/["\\]/g, '\\$&'); }
 
 // ============ Settings tab ============
@@ -843,7 +949,7 @@ function renderSettings(el) {
   `;
 
   const privRepoInput = el.querySelector('#priv-repo');
-  const privStatus = el.querySelector('#priv-status');
+  const privStatus    = el.querySelector('#priv-status');
 
   el.querySelector('#save-priv-repo').addEventListener('click', () => {
     const val = privRepoInput.value.trim();
@@ -867,6 +973,7 @@ function renderSettings(el) {
   });
 
   el.querySelector('#clear-pat').addEventListener('click', () => {
+    if (isDraftDirty() && !confirm('Есть несохранённые изменения. Выйти и потерять их?')) return;
     if (confirm('Очистить токен и выйти?')) { gh.clearAuth(); boot(); }
   });
 }
