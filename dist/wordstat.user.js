@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Avito Wordstat — Автопарсер
 // @namespace    https://avito.ru/
-// @version      2.5
+// @version      2.6
 // @description  Автоматически перебирает артикулы и собирает статистику спроса с Авито Wordstat
 // @author       TroyDiFlex
 // @match        https://www.avito.ru/analytics/wordstat*
@@ -705,25 +705,20 @@
         });
     })(panel);
 
-    // ─── ХАК ДЛЯ ФОНОВОЙ РАБОТЫ (AudioContext) ───
+    // ─── ХАК ДЛЯ ФОНОВОЙ РАБОТЫ (Silent Audio) ───
     let audioTrickEnabled = false;
     function enableAudioTrick() {
         if (audioTrickEnabled) return;
         try {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            if (!AudioContext) return;
-            const ctx = new AudioContext();
-            const oscillator = ctx.createOscillator();
-            oscillator.frequency.value = 20000; // Ультразвуковая частота (за пределом человеческого слуха)
-            const gainNode = ctx.createGain();
-            gainNode.gain.value = 0.00001; // Практически нулевая громкость (0 иногда отключает хак)
-            oscillator.connect(gainNode);
-            gainNode.connect(ctx.destination);
-            oscillator.start();
-            audioTrickEnabled = true;
-            console.log('[Wordstat Parser] Аудио-хак для фоновой работы активирован.');
+            // Крошечный base64-wav файл с абсолютной тишиной
+            const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+            audio.loop = true;
+            audio.play().then(() => {
+                audioTrickEnabled = true;
+                console.log('[Wordstat Parser] Аудио-хак (пустой звук) для фоновой работы активирован.');
+            }).catch(e => console.warn('[Wordstat Parser] Не удалось запустить аудио-хак:', e));
         } catch (e) {
-            console.warn('[Wordstat Parser] Не удалось запустить аудио-хак:', e);
+            console.warn('[Wordstat Parser] Ошибка аудио-хака:', e);
         }
     }
 
@@ -762,5 +757,5 @@
 
     btnSave.addEventListener('click', () => { if (results.length) downloadCSV(); });
 
-    console.log('[Avito Wordstat Parser] ✅ Скрипт версии 2.5 загружен!');
+    console.log('[Avito Wordstat Parser] ✅ Скрипт версии 2.6 загружен!');
 })();
