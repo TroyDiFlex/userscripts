@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Avito Wordstat — Автопарсер
 // @namespace    https://avito.ru/
-// @version      2.3
+// @version      2.4
 // @description  Автоматически перебирает артикулы и собирает статистику спроса с Авито Wordstat
 // @author       TroyDiFlex
 // @match        https://www.avito.ru/analytics/wordstat*
@@ -705,8 +705,31 @@
         });
     })(panel);
 
+    // ─── ХАК ДЛЯ ФОНОВОЙ РАБОТЫ (AudioContext) ───
+    let audioTrickEnabled = false;
+    function enableAudioTrick() {
+        if (audioTrickEnabled) return;
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return;
+            const ctx = new AudioContext();
+            const oscillator = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            gainNode.gain.value = 0.001; // Тихий звук
+            oscillator.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            oscillator.start();
+            audioTrickEnabled = true;
+            console.log('[Wordstat Parser] Аудио-хак для фоновой работы активирован.');
+        } catch (e) {
+            console.warn('[Wordstat Parser] Не удалось запустить аудио-хак:', e);
+        }
+    }
+
     // ─── КНОПКИ ───
     btnStart.addEventListener('click', () => {
+        enableAudioTrick();
+        
         if (isRunning) {
             isRunning = false; isPaused = false;
             btnStart.textContent = '▶ Старт';
@@ -738,5 +761,5 @@
 
     btnSave.addEventListener('click', () => { if (results.length) downloadCSV(); });
 
-    console.log('[Avito Wordstat Parser] ✅ Скрипт версии 2.2 загружен!');
+    console.log('[Avito Wordstat Parser] ✅ Скрипт версии 2.4 загружен!');
 })();
