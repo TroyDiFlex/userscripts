@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Avito Wordstat — Автопарсер
 // @namespace    https://avito.ru/
-// @version      2.4
+// @version      2.5
 // @description  Автоматически перебирает артикулы и собирает статистику спроса с Авито Wordstat
 // @author       TroyDiFlex
 // @match        https://www.avito.ru/analytics/wordstat*
@@ -714,8 +714,9 @@
             if (!AudioContext) return;
             const ctx = new AudioContext();
             const oscillator = ctx.createOscillator();
+            oscillator.frequency.value = 20000; // Ультразвуковая частота (за пределом человеческого слуха)
             const gainNode = ctx.createGain();
-            gainNode.gain.value = 0.001; // Тихий звук
+            gainNode.gain.value = 0.00001; // Практически нулевая громкость (0 иногда отключает хак)
             oscillator.connect(gainNode);
             gainNode.connect(ctx.destination);
             oscillator.start();
@@ -761,5 +762,5 @@
 
     btnSave.addEventListener('click', () => { if (results.length) downloadCSV(); });
 
-    console.log('[Avito Wordstat Parser] ✅ Скрипт версии 2.4 загружен!');
+    console.log('[Avito Wordstat Parser] ✅ Скрипт версии 2.5 загружен!');
 })();
